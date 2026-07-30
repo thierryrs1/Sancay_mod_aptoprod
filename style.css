@@ -520,3 +520,177 @@ input[type=number]::-webkit-outer-spin-button {
 input[type=number] {
     -moz-appearance: textfield;
 }
+/* Estilos Premium para os Cards de Seleção de Operação */
+.op-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    min-height: 90px;
+    position: relative;
+    overflow: hidden;
+}
+
+.op-card:hover {
+    border-color: #cbd5e1;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+}
+
+.op-card.selected {
+    border: 2px solid var(--primary);
+    background: #f0f7ff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.15);
+}
+
+.op-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 6px;
+    margin-bottom: 2px;
+}
+
+.op-card.selected .op-card-header {
+    border-bottom-color: #dbeafe;
+}
+
+.op-badge {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--primary);
+    background: #eff6ff;
+    padding: 2px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.02em;
+}
+
+.op-card.selected .op-badge {
+    background: #dbeafe;
+}
+
+.seq-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    background: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.op-card.selected .seq-badge {
+    color: #3b82f6;
+    background: #dbeafe;
+}
+
+.op-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex-grow: 1;
+    justify-content: center;
+}
+
+.op-name {
+    font-weight: 600;
+    color: #334155;
+    font-size: 0.95rem;
+    line-height: 1.2;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: break-word;
+}
+
+.pos-text {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+/* Melhorias no input do Datalist (Colaborador) */
+#inputPersId {
+    background-color: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.95rem;
+    color: #334155;
+    transition: all 0.2s ease;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
+}
+
+#inputPersId:focus {
+    background-color: #ffffff;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    outline: none;
+}
+
+/* Estilos Corrigidos para os Cards */
+.op-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 2px;
+}
+
+.op-label {
+    font-weight: 700;
+    color: var(--primary);
+    font-size: 1.05rem;
+}
+
+.seq-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #475569;
+    background: #e2e8f0;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.op-card.selected .seq-label {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.op-card-mid {
+    font-size: 0.75rem;
+    color: #64748b;
+    margin-bottom: 6px;
+    width: 100%;
+    text-align: left;
+}
+
+.op-card-bot {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #475569;
+    line-height: 1.2;
+    width: 100%;
+    text-align: center;
+    margin-top: auto;
+    /* Previne a quebra estranha e corta se for gigante */
+    word-break: normal;
+    overflow-wrap: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.op-card.selected .op-card-bot {
+    color: #1e40af;
+}

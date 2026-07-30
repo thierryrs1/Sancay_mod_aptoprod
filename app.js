@@ -49,8 +49,7 @@ export const app = {
                     const id = p.Code || p.PERS_ID || p.PersID || p.id || p.ID || p;
                     const name = p.NAME || p.Name || p.Nome || p.Description || '';
                     const opt = document.createElement('option');
-                    opt.value = id;
-                    if (name) opt.textContent = `${id} - ${name}`;
+                    opt.value = name ? `${id} - ${name}` : id;
                     datalist.appendChild(opt);
                 });
             }
@@ -341,39 +340,23 @@ export const app = {
 
             this.selectedOperations.forEach((sel, index) => {
                 const card = document.createElement('div');
-                card.style.padding = '12px 8px';
-                card.style.border = index === 0 ? '2px solid var(--primary)' : '2px solid #e2e8f0';
-                card.style.borderRadius = '8px';
-                card.style.cursor = 'pointer';
-                card.style.backgroundColor = index === 0 ? '#eff6ff' : '#f8fafc';
-                card.style.transition = 'all 0.2s';
-                card.style.boxSizing = 'border-box';
-                card.style.display = 'flex';
-                card.style.flexDirection = 'column';
-                card.style.justifyContent = 'center';
-                card.style.alignItems = 'center';
-                card.style.textAlign = 'center';
-                card.style.minHeight = '100px';
-
+                card.className = 'op-card' + (index === 0 ? ' selected' : '');
+                
+                // Trunca o nome da operação caso seja muito grande e ajusta o layout para premium
+                const opName = sel.rot.BEZ || sel.rot.AG_ID || '';
+                
                 card.innerHTML = `
-                    <div style="font-weight: 700; color: var(--primary); font-size: 1.05rem; margin-bottom: 2px;">
-                        OP ${sel.op.BELNR_ID}
-                        <span style="color: #cbd5e1; margin: 0 4px;">|</span>
-                        Seq ${sel.rot.POS_TEXT || sel.rot.POS_ID}
+                    <div class="op-card-top" style="justify-content: center;">
+                        <span class="op-label">OP: ${sel.op.BELNR_ID}/${sel.pos.BELPOS_ID}/${sel.rot.POS_TEXT || sel.rot.POS_ID}</span>
                     </div>
-                    <div style="font-size: 0.75rem; color: #64748b; margin-bottom: 6px;">
-                        Pos ${sel.pos.BELPOS_ID}
-                    </div>
-                    <div style="font-size: 0.85rem; font-weight: 600; color: #475569; line-height: 1.2; width: 100%; word-break: break-word;">
-                        ${sel.rot.AG_ID}
-                    </div>
+                    <div class="op-card-bot" title="${opName}" style="margin-top: 6px;">${opName}</div>
                 `;
 
                 card.onclick = () => {
                     this.selectedOpModalIndex = index;
                     Array.from(container.children).forEach((c, i) => {
-                        c.style.border = i === index ? '2px solid var(--primary)' : '2px solid #e2e8f0';
-                        c.style.backgroundColor = i === index ? '#eff6ff' : '#f8fafc';
+                        if (i === index) c.classList.add('selected');
+                        else c.classList.remove('selected');
                     });
                 };
 
