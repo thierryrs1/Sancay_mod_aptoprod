@@ -307,11 +307,11 @@ export const app = {
         this.renderApontamentos();
     },
 
-    abrirListaOpsSelecionadas: function() {
+    abrirListaOpsSelecionadas: function () {
         const modal = document.getElementById('modalOpsSelecionadas');
         const container = document.getElementById('listaOpsSelecionadasModal');
         if (!modal || !container) return;
-        
+
         container.innerHTML = '';
         this.selectedOperations.forEach(sel => {
             const row = document.createElement('div');
@@ -326,7 +326,7 @@ export const app = {
             `;
             container.appendChild(row);
         });
-        
+
         modal.classList.add('active');
     },
 
@@ -341,13 +341,13 @@ export const app = {
             this.selectedOperations.forEach((sel, index) => {
                 const card = document.createElement('div');
                 card.className = 'op-card' + (index === 0 ? ' selected' : '');
-                
+
                 // Trunca o nome da operação caso seja muito grande e ajusta o layout para premium
                 const opName = sel.rot.BEZ || sel.rot.AG_ID || '';
-                
+
                 card.innerHTML = `
                     <div class="op-card-top" style="justify-content: center;">
-                        <span class="op-label">OP: ${sel.op.BELNR_ID}/${sel.pos.BELPOS_ID}/${sel.rot.POS_TEXT || sel.rot.POS_ID}</span>
+                        <span class="op-label">${sel.op.BELNR_ID}/${sel.pos.BELPOS_ID}/${sel.rot.POS_TEXT || sel.rot.POS_ID}</span>
                     </div>
                     <div class="op-card-bot" title="${opName}" style="margin-top: 6px;">${opName}</div>
                 `;
@@ -431,7 +431,7 @@ export const app = {
                 <td>
                     <div style="display: flex; flex-direction: column; gap: 3px; padding: 4px 0;">
                         <div style="font-weight: 700; color: var(--primary); font-size: 0.95rem; margin-bottom: 2px;">OP ${reg.belnrId} / ${reg.belposId} / ${reg.posText || reg.posId}</div>
-                        ${reg.lote ? `<div style="font-size: 0.75rem; font-weight: 600; color: #3b82f6;">Lote ${reg.lote}</div>` : ''}
+                        ${reg.lote ? `<div style="font-size: 0.75rem; font-weight: 600; color: #3b82f6;"> ${reg.lote}</div>` : ''}
                         <div style="font-size: 0.75rem; font-weight: 600; color: #475569;">${reg.itemCode}</div>
                         <div style="font-size: 0.75rem; font-weight: 600; color: #475569; word-wrap: break-word;">${reg.itemName}</div>
                         <div style="font-size: 0.75rem; font-weight: 600; color: #475569;">${reg.operacaoNome}</div>

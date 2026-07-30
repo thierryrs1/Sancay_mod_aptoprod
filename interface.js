@@ -74,20 +74,30 @@ export function buildUI() {
 
     // --- Tab 2 ---
     const tabContent2 = el('div', { id: 'tabContent2', className: 'tab-pane' },
-        el('div', { className: 'header-panel', style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
-            el('div', null,
-                el('h2', { id: 'matTitle' }, 'Registro de Apontamentos'),
-                el('p', { id: 'matOpName' })
-            ),
-            el('div', { style: { display: 'flex', alignItems: 'center', gap: '15px' } },
-                el('label', { style: { display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', color: '#475569', fontWeight: 'bold' } },
-                    el('input', { type: 'checkbox', id: 'chkOcultarSalvos', checked: true, onchange: () => app.renderApontamentos(), style: { transform: 'scale(1.2)' } }),
+        el('div', { className: 'header-panel', style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '15px' } },
+            el('div', { style: { display: 'flex', flexDirection: 'column', gap: '12px' } },
+                el('div', null,
+                    el('h2', { id: 'matTitle', style: { margin: 0 } }, 'Registro de Apontamentos'),
+                    el('p', { id: 'matOpName', style: { margin: '4px 0 0 0' } })
+                ),
+                el('label', { style: { display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: '#475569', fontWeight: '600', fontSize: '0.85rem', backgroundColor: '#f1f5f9', padding: '6px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', width: 'max-content', transition: 'background-color 0.2s' }, onmouseover: (e) => e.currentTarget.style.backgroundColor = '#e2e8f0', onmouseout: (e) => e.currentTarget.style.backgroundColor = '#f1f5f9' },
+                    el('input', { type: 'checkbox', id: 'chkOcultarSalvos', checked: true, onchange: () => app.renderApontamentos(), style: { margin: 0, width: '16px', height: '16px', accentColor: 'var(--primary)' } }),
                     'Ocultar Salvos'
+                )
+            ),
+            el('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' } },
+                el('button', { className: 'btn', style: { backgroundColor: '#10b981', color: 'white', border: 'none', boxShadow: '0 1px 2px rgba(0,0,0,0.1)', fontWeight: '600' }, onclick: () => app.iniciarTodos(), title: 'Iniciar todos os registros' },
+                    el('i', { className: 'fa-solid fa-play', style: { marginRight: '6px' } }),
+                    'Iniciar Todos'
+                ),
+                el('button', { className: 'btn', style: { backgroundColor: '#f59e0b', color: 'white', border: 'none', boxShadow: '0 1px 2px rgba(0,0,0,0.1)', fontWeight: '600' }, onclick: () => app.pararTodos(), title: 'Parar todos os registros' },
+                    el('i', { className: 'fa-solid fa-stop', style: { marginRight: '6px' } }),
+                    'Parar Todos'
                 ),
                 el('button', { className: 'btn btn-outline', style: { display: 'none' }, disabled: true, onclick: () => app.finalizarOp() }, 'Finalizar OP'),
-                el('button', { className: 'btn btn-success', onclick: () => app.abrirModalColaborador() },
-                    'Adicionar Registro de Tempo ',
-                    el('i', { className: 'fa-solid fa-plus', style: { marginLeft: '5px' } })
+                el('button', { className: 'btn', style: { backgroundColor: 'var(--primary)', color: 'white', border: 'none', boxShadow: '0 1px 2px rgba(0,0,0,0.1)', fontWeight: '600', transition: 'filter 0.2s' }, onmouseover: (e) => e.currentTarget.style.filter = 'brightness(0.9)', onmouseout: (e) => e.currentTarget.style.filter = 'brightness(1)', onclick: () => app.abrirModalColaborador() },
+                    el('i', { className: 'fa-solid fa-plus', style: { marginRight: '6px' } }),
+                    'Registro de Tempo'
                 )
             )
         ),
@@ -135,7 +145,7 @@ export function buildUI() {
         )
     );
 
-    const modalOpsSelecionadas = el('div', { className: 'modal', id: 'modalOpsSelecionadas', onclick: (e) => { if(e.target.id === 'modalOpsSelecionadas') document.getElementById('modalOpsSelecionadas').classList.remove('active') } },
+    const modalOpsSelecionadas = el('div', { className: 'modal', id: 'modalOpsSelecionadas', onclick: (e) => { if (e.target.id === 'modalOpsSelecionadas') document.getElementById('modalOpsSelecionadas').classList.remove('active') } },
         el('div', { className: 'modal-content', style: { maxWidth: '600px', display: 'flex', flexDirection: 'column' } },
             el('h3', { style: { flexShrink: 0 } }, 'Operações Selecionadas'),
             el('div', { id: 'listaOpsSelecionadasModal', style: { flexGrow: 1, maxHeight: '400px', overflowY: 'auto', marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '8px' } }),
@@ -146,8 +156,8 @@ export function buildUI() {
     );
 
     // Ajusta o modalColaborador para fechar ao clicar fora
-    modalColaborador.onclick = function(e) {
-        if(e.target === modalColaborador) {
+    modalColaborador.onclick = function (e) {
+        if (e.target === modalColaborador) {
             app.fecharModalColaborador();
         }
     };
