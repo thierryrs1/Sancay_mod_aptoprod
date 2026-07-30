@@ -95,15 +95,15 @@ export function buildUI() {
             el('table', { className: 'data-table', style: { width: '100%' } },
                 el('thead', null,
                     el('tr', null,
-                        el('th', null, 'OP / OPERAÇÃO'),
-                        el('th', null, 'COLABORADOR'),
-                        el('th', null, 'OBSERVAÇÃO'),
-                        el('th', null, 'TIPO PESO'),
-                        el('th', { style: { textAlign: 'center', width: '220px' } }, 'PESAGEM'),
-                        el('th', { style: { textAlign: 'right', width: '100px' } }, 'TOTAL PROC.'),
-                        el('th', { style: { textAlign: 'right', width: '90px' } }, 'TEMPO'),
-                        el('th', { style: { textAlign: 'center', width: '120px' } }, 'REGISTRO'),
-                        el('th', { style: { textAlign: 'center', width: '40px' } }, '')
+                        el('th', { style: { width: '260px' } }, 'OP / OPERAÇÃO'),
+                        el('th', { style: { width: '80px' } }, 'COLABORADOR'),
+                        el('th', { style: { width: '120px' } }, 'OBSERVAÇÃO'),
+                        el('th', { style: { width: '100px' } }, 'TIPO PESO'),
+                        el('th', { style: { textAlign: 'center', width: '200px' } }, 'PESAGEM'),
+                        el('th', { style: { textAlign: 'right', width: '90px' } }, 'TOTAL PROC.'),
+                        el('th', { style: { textAlign: 'right', width: '80px' } }, 'TEMPO'),
+                        el('th', { style: { textAlign: 'center', width: '90px' } }, 'REGISTRO'),
+                        el('th', { style: { textAlign: 'center', width: '100px' } }, 'AÇÕES')
                     )
                 ),
                 el('tbody', { id: 'apontamentosTbody' })

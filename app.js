@@ -429,12 +429,13 @@ export const app = {
 
             tr.innerHTML = `
                 <td>
-                    <div class="text-bold" style="color: var(--primary); font-size: 0.9em;">
-                        OP ${reg.belnrId} | Pos ${reg.belposId} | Seq ${reg.posText || reg.posId}
-                        ${reg.lote ? ` <span style="background-color: #3b82f6; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; margin-left: 5px;">Lote ${reg.lote}</span>` : ''}
+                    <div style="display: flex; flex-direction: column; gap: 3px; padding: 4px 0;">
+                        <div style="font-weight: 700; color: var(--primary); font-size: 0.95rem; margin-bottom: 2px;">OP ${reg.belnrId} / ${reg.belposId} / ${reg.posText || reg.posId}</div>
+                        ${reg.lote ? `<div style="font-size: 0.75rem; font-weight: 600; color: #3b82f6;">Lote ${reg.lote}</div>` : ''}
+                        <div style="font-size: 0.75rem; font-weight: 600; color: #475569;">${reg.itemCode}</div>
+                        <div style="font-size: 0.75rem; font-weight: 600; color: #475569; word-wrap: break-word;">${reg.itemName}</div>
+                        <div style="font-size: 0.75rem; font-weight: 600; color: #475569;">${reg.operacaoNome}</div>
                     </div>
-                    <div class="text-muted" style="font-size: 0.8em; color: #475569;">${reg.operacaoNome}</div>
-                    <div class="text-muted" style="font-size: 0.75em;">${reg.itemCode} - ${reg.itemName}</div>
                 </td>
                 <td><span class="badge badge-gray">${reg.colaborador}</span></td>
                 
@@ -489,8 +490,12 @@ export const app = {
                 }
                 </td>
                 
-                <td style="text-align: center;">
-                    ${!isDone ? `<button style="background:transparent; border:none; color:#ef4444; padding:4px; cursor:pointer;" onclick="app.removerRegistro(${index})" title="Remover"><i class="fa-solid fa-trash" style="font-size:1.2em; transition:color 0.2s;" onmouseover="this.style.color='#b91c1c'" onmouseout="this.style.color='#ef4444'"></i></button>` : ''}
+                <td style="text-align: center; white-space: nowrap;">
+                    ${!isDone ? `
+                        <button style="background-color: #10b981; border: none; color: white; padding: 6px 10px; border-radius: 6px; cursor: pointer; margin: 0 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); transition: background-color 0.2s;" onclick="app.iniciarTempo(${index})" title="Iniciar" onmouseover="this.style.backgroundColor='#059669'" onmouseout="this.style.backgroundColor='#10b981'"><i class="fa-solid fa-play" style="font-size: 1rem;"></i></button>
+                        <button style="background-color: #f59e0b; border: none; color: white; padding: 6px 10px; border-radius: 6px; cursor: pointer; margin: 0 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); transition: background-color 0.2s;" onclick="app.pararTempo(${index})" title="Parar" onmouseover="this.style.backgroundColor='#d97706'" onmouseout="this.style.backgroundColor='#f59e0b'"><i class="fa-solid fa-stop" style="font-size: 1rem;"></i></button>
+                        <button style="background-color: #ef4444; border: none; color: white; padding: 6px 10px; border-radius: 6px; cursor: pointer; margin: 0 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); transition: background-color 0.2s;" onclick="app.removerRegistro(${index})" title="Remover" onmouseover="this.style.backgroundColor='#b91c1c'" onmouseout="this.style.backgroundColor='#ef4444'"><i class="fa-solid fa-trash" style="font-size: 1rem;"></i></button>
+                    ` : ''}
                 </td>
             `;
             tbody.appendChild(tr);
