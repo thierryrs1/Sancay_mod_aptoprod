@@ -515,22 +515,23 @@ export const app = {
                     <span class="badge badge-blue" style="font-size: 0.9em;">${reg.totalProcesso.toFixed(2)}</span>
                 </td>
                 
-                <td style="text-align: right;">
-                    <input type="number" step="1" class="input-weigh" id="tempo_${index}" value="${reg.tempo}" oninput="app.atualizarCampo(${index}, 'tempo', this.value); app.checkSavable(${index})" style="width:75px; text-align: center;" ${isDone ? 'disabled' : ''}>
+                <td style="text-align: right; vertical-align: top;">
+                    <input type="number" step="1" class="input-weigh" id="tempo_${index}" value="${reg.tempo}" oninput="app.atualizarCampo(${index}, 'tempo', this.value); app.checkSavable(${index})" style="width:75px; text-align: center;" ${(isDone || isIniciado) ? 'disabled' : ''}>
                 </td>
                 
-                <td style="text-align: center;">
+                <td style="text-align: center; vertical-align: top;">
                     ${isDone
                     ? `<span class="badge badge-gray"><i class="fa-solid fa-check"></i> Salvo</span>`
                     : `<button id="btn_save_${index}" class="btn btn-success" onclick="app.finalizarRegistro(${index})" style="padding: 6px 12px; font-size: 0.8rem;"><i class="fa-solid fa-check"></i> Salvar</button>`
                 }
                 </td>
                 
-                <td style="text-align: center; white-space: nowrap;">
+                <td style="text-align: center; white-space: nowrap; vertical-align: top;">
+                    <input type="hidden" id="systemNumber_${index}" value="${reg.systemNumber || ''}">
                     ${!isDone ? `
-                        <button style="background-color: #10b981; border: none; color: white; padding: 6px 10px; border-radius: 6px; cursor: pointer; margin: 0 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); transition: background-color 0.2s;" onclick="app.iniciarTempo(${index})" title="Iniciar" onmouseover="this.style.backgroundColor='#059669'" onmouseout="this.style.backgroundColor='#10b981'"><i class="fa-solid fa-play" style="font-size: 1rem;"></i></button>
-                        <button style="background-color: #f59e0b; border: none; color: white; padding: 6px 10px; border-radius: 6px; cursor: pointer; margin: 0 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); transition: background-color 0.2s;" onclick="app.pararTempo(${index})" title="Parar" onmouseover="this.style.backgroundColor='#d97706'" onmouseout="this.style.backgroundColor='#f59e0b'"><i class="fa-solid fa-stop" style="font-size: 1rem;"></i></button>
-                        <button style="background-color: #ef4444; border: none; color: white; padding: 6px 10px; border-radius: 6px; cursor: pointer; margin: 0 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); transition: background-color 0.2s;" onclick="app.removerRegistro(${index})" title="Remover" onmouseover="this.style.backgroundColor='#b91c1c'" onmouseout="this.style.backgroundColor='#ef4444'"><i class="fa-solid fa-trash" style="font-size: 1rem;"></i></button>
+                        <button class="btn-action-icon btn-action-play" onclick="app.iniciarTempo(${index})" title="${isIniciado ? 'Em andamento' : 'Iniciar'}" ${isIniciado ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : ''}><i class="fa-solid fa-play"></i></button>
+                        <button class="btn-action-icon btn-action-stop" onclick="app.pararTempo(${index})" title="Parar" ${!isIniciado ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : ''}><i class="fa-solid fa-stop"></i></button>
+                        <button class="btn-action-icon btn-action-delete" onclick="app.removerRegistro(${index})" title="Remover" ${isIniciado ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : ''}><i class="fa-solid fa-trash"></i></button>
                     ` : ''}
                 </td>
             `;
@@ -763,23 +764,184 @@ export const app = {
         }
     },
 
+    iniciarTempo: async function (index) {
+        const reg = this.apontamentosManuais[index];
+        if (!reg) return;
+
+        if (reg.status === 'Iniciado') {
+            this.showToast('Este registro já está em andamento.', 'warning');
+            return;
+        }
+
+        const payload = {
+            "PersonnelId": String(reg.colaborador),
+            "DocEntry": parseInt(reg.belnrId, 10),
+            "LineNumber": parseInt(reg.belposId, 10),
+            "LineNumber2": parseInt(reg.posId, 10)
+        };
+
+        return new Promise((resolve) => {
+            api.serviceLayerPost('/odata4/v1/TimeReceiptRunning', payload, (sErr, result) => {
+                if (sErr) {
+                    console.error('Erro ao iniciar TimeReceiptRunning:', sErr, result);
+                    let errorMsg = 'Erro ao iniciar apontamento na Service Layer.';
+                    if (result) {
+                        try {
+                            const resObj = typeof result === 'string' ? JSON.parse(result) : result;
+                            if (resObj && resObj.error && resObj.error.message && resObj.error.message.value) {
+                                errorMsg = resObj.error.message.value;
+                            } else if (resObj && resObj.error && resObj.error.message && typeof resObj.error.message === 'string') {
+                                errorMsg = resObj.error.message;
+                            } else if (resObj && resObj.error && typeof resObj.error === 'string') {
+                                errorMsg = resObj.error;
+                            }
+                        } catch (e) {}
+                    }
+                    app.showToast(errorMsg, 'error');
+                    resolve(false);
+                } else {
+                    let systemNumber = null;
+                    try {
+                        const resObj = typeof result === 'string' ? JSON.parse(result) : result;
+                        if (resObj && resObj.SystemNumber !== undefined) {
+                            systemNumber = resObj.SystemNumber;
+                        } else if (resObj && resObj.value && typeof resObj.value === 'object' && resObj.value.SystemNumber !== undefined) {
+                            systemNumber = resObj.value.SystemNumber;
+                        }
+                    } catch (e) {}
+
+                    reg.status = 'Iniciado';
+                    if (systemNumber !== null) {
+                        reg.systemNumber = systemNumber;
+                    }
+                    app.saveDrafts();
+                    app.renderApontamentos();
+                    app.showToast(`Registro iniciado com sucesso! ${systemNumber ? '(SystemNumber: ' + systemNumber + ')' : ''}`, 'success');
+                    resolve(true);
+                }
+            });
+        });
+    },
+
+    pararTempo: async function (index) {
+        const reg = this.apontamentosManuais[index];
+        if (!reg) return;
+
+        if (reg.status !== 'Iniciado') {
+            this.showToast('Este registro não está em andamento.', 'warning');
+            return;
+        }
+
+        const sysNum = reg.systemNumber || (document.getElementById(`systemNumber_${index}`) ? document.getElementById(`systemNumber_${index}`).value : null);
+
+        const payload = {
+            "DocEntry": parseInt(reg.belnrId, 10),
+            "LineNumber": parseInt(reg.belposId, 10),
+            "LineNumber2": parseInt(reg.posId, 10),
+            "PersonnelId": String(reg.colaborador),
+            "QuantityGoodRUoM": parseFloat(reg.totalProcesso) || 0,
+            "CloseEntry": false,
+            "ManualBooking": false,
+            "Remarks": reg.observacao || "Apontamento Start/Stop",
+            "FromTimeReceiptRunning": sysNum ? parseInt(sysNum, 10) : 1,
+            "TimeReceiptRunningId": sysNum ? parseInt(sysNum, 10) : 1
+        };
+
+        return new Promise((resolve) => {
+            api.serviceLayerPost('/odata4/v1/TimeReceipt', payload, (sErr, result) => {
+                if (sErr) {
+                    console.error('Erro ao parar TimeReceipt:', sErr, result);
+                    let errorMsg = 'Erro ao parar apontamento na Service Layer.';
+                    if (result) {
+                        try {
+                            const resObj = typeof result === 'string' ? JSON.parse(result) : result;
+                            if (resObj && resObj.error && resObj.error.message && resObj.error.message.value) {
+                                errorMsg = resObj.error.message.value;
+                            } else if (resObj && resObj.error && resObj.error.message && typeof resObj.error.message === 'string') {
+                                errorMsg = resObj.error.message;
+                            } else if (resObj && resObj.error && typeof resObj.error === 'string') {
+                                errorMsg = resObj.error;
+                            }
+                        } catch (e) {}
+                    }
+                    app.showToast(errorMsg, 'error');
+                    resolve(false);
+                } else {
+                    reg.status = 'Finalizado';
+                    app.saveDrafts();
+                    app.renderApontamentos();
+                    app.showToast('Apontamento parado e finalizado com sucesso!', 'success');
+                    resolve(true);
+                }
+            });
+        });
+    },
+
+    iniciarTodos: async function () {
+        const pendentesIndices = [];
+        this.apontamentosManuais.forEach((r, idx) => {
+            if (r.status === 'Pendente') pendentesIndices.push(idx);
+        });
+
+        if (pendentesIndices.length === 0) {
+            this.showToast('Nenhum registro pendente para iniciar.', 'warning');
+            return;
+        }
+
+        for (const idx of pendentesIndices) {
+            await this.iniciarTempo(idx);
+        }
+    },
+
+    pararTodos: async function () {
+        const iniciadosIndices = [];
+        this.apontamentosManuais.forEach((r, idx) => {
+            if (r.status === 'Iniciado') iniciadosIndices.push(idx);
+        });
+
+        if (iniciadosIndices.length === 0) {
+            this.showToast('Nenhum registro em andamento para parar.', 'warning');
+            return;
+        }
+
+        for (const idx of iniciadosIndices) {
+            await this.pararTempo(idx);
+        }
+    },
+
     showToast: function (msg, type = 'success') {
+        let container = document.getElementById('toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toast-container';
+            document.body.appendChild(container);
+        }
+
         const toast = document.createElement('div');
-        const bgColor = type === 'error' ? '#ef4444' : '#10b981';
-        toast.style.cssText = `position:fixed; bottom:20px; right:20px; background-color:${bgColor}; color:white; padding:15px 25px; border-radius:8px; box-shadow:0 4px 6px rgba(0,0,0,0.1); font-weight:bold; z-index:9999; opacity:0; transition:all 0.3s ease; transform:translateY(20px);`;
-        toast.innerHTML = `<i class="fa-solid fa-${type === 'error' ? 'triangle-exclamation' : 'check'}"></i> <span style="margin-left:8px;">${msg}</span>`;
-        document.body.appendChild(toast);
+        toast.className = `toast-msg ${type}`;
+        
+        let icon = 'fa-check';
+        if (type === 'error') icon = 'fa-triangle-exclamation';
+        else if (type === 'warning') icon = 'fa-circle-exclamation';
+        else if (type === 'info') icon = 'fa-circle-info';
+
+        toast.innerHTML = `
+            <i class="fa-solid ${icon}"></i>
+            <span>${msg}</span>
+            <button class="toast-close-btn" onclick="this.parentElement.remove()">&times;</button>
+        `;
+        container.appendChild(toast);
 
         requestAnimationFrame(() => {
-            toast.style.opacity = '1';
-            toast.style.transform = 'translateY(0)';
+            toast.classList.add('show');
         });
 
         setTimeout(() => {
-            toast.style.opacity = '0';
-            toast.style.transform = 'translateY(20px)';
-            setTimeout(() => toast.remove(), 300);
-        }, 3000);
+            if (toast && toast.parentElement) {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }
+        }, 5000);
     }
 };
 

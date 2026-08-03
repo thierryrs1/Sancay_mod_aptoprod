@@ -1,4 +1,20 @@
-// Gerenciamento centralizado de chamadas de API
+export function cleanBeasMasks() {
+    try {
+        if (window.ux && typeof window.ux.unbusy === 'function') {
+            window.ux.unbusy();
+        }
+        if (window.Ext && window.Ext.getBody) {
+            window.Ext.getBody().unmask();
+        }
+        document.querySelectorAll('.x-mask, .x-mask-msg, .beas-mask, .loading-mask, [class*="mask"]').forEach(el => {
+            if (el && el.parentNode) {
+                try { el.parentNode.removeChild(el); } catch (e) {}
+            }
+        });
+    } catch (e) {
+        console.warn('cleanBeasMasks fallback error:', e);
+    }
+}
 
 export const api = {
     getOps: async () => {
@@ -62,6 +78,7 @@ export const api = {
     serviceLayerPost(endpoint, payload, callback) {
         if (window.ux && typeof window.ux.saveAll === 'function') {
             window.ux.saveAll(endpoint, payload, function (err, result) {
+                cleanBeasMasks();
                 let isError = !!err;
                 if (!isError && result) {
                     try {
@@ -89,6 +106,7 @@ export const api = {
     serviceLayerPut(endpoint, payload, callback) {
         if (window.ux && typeof window.ux.saveAll === 'function') {
             window.ux.saveAll(endpoint, payload, function (err, result) {
+                cleanBeasMasks();
                 let isError = !!err;
                 if (!isError && result) {
                     try {
