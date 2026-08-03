@@ -576,7 +576,7 @@ export const app = {
                     <input type="hidden" id="systemNumber_${index}" value="${reg.systemNumber || ''}">
                     ${!isDone ? `
                         <button class="btn-action-icon btn-action-play" onclick="app.iniciarTempo(${index})" title="${isIniciado ? 'Em andamento' : 'Iniciar'}" ${isIniciado ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : ''}><i class="fa-solid fa-play"></i></button>
-                        <button class="btn-action-icon btn-action-stop" onclick="app.pararTempo(${index})" title="Parar" ${!isIniciado ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : ''}><i class="fa-solid fa-stop"></i></button>
+                        <button class="btn-action-icon btn-action-stop" onclick="app.pararTempo(${index})" title="${!isIniciado ? 'Iniciar primeiro' : (parseFloat(reg.totalProcesso) <= 0 ? 'Preencha o TOTAL PROC. antes de Parar' : 'Parar')}" ${(!isIniciado || parseFloat(reg.totalProcesso) <= 0) ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : ''}><i class="fa-solid fa-stop"></i></button>
                         <button class="btn-action-icon btn-action-delete" onclick="app.removerRegistro(${index})" title="Remover" ${isIniciado ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : ''}><i class="fa-solid fa-trash"></i></button>
                     ` : ''}
                 </td>
@@ -878,6 +878,12 @@ export const app = {
             return;
         }
 
+        const totalProc = parseFloat(reg.totalProcesso) || 0;
+        if (totalProc <= 0) {
+            this.showToast('Não é possível parar: o campo TOTAL PROC. deve ser maior que zero.', 'warning');
+            return;
+        }
+
         const sysNum = reg.systemNumber || (document.getElementById(`systemNumber_${index}`) ? document.getElementById(`systemNumber_${index}`).value : null);
 
         const payload = {
@@ -885,7 +891,7 @@ export const app = {
             "LineNumber": parseInt(reg.belposId, 10),
             "LineNumber2": parseInt(reg.posId, 10),
             "PersonnelId": String(reg.colaborador),
-            "QuantityGoodRUoM": parseFloat(reg.totalProcesso) || 0,
+            "QuantityGoodRUoM": totalProc,
             "CloseEntry": false,
             "ManualBooking": false,
             "Remarks": reg.observacao || "Apontamento Start/Stop",
@@ -940,17 +946,34 @@ export const app = {
     },
 
     pararTodos: async function () {
-        const iniciadosIndices = [];
-        this.apontamentosManuais.forEach((r, idx) => {
-            if (r.status === 'Iniciado') iniciadosIndices.push(idx);
-        });
-
-        if (iniciadosIndices.length === 0) {
+        const iniciados = this.apontamentosManuais.filter(r => r.status === 'Iniciado');
+        if (iniciados.length === 0) {
             this.showToast('Nenhum registro em andamento para parar.', 'warning');
             return;
         }
 
-        for (const idx of iniciadosIndices) {
+        const aptos = [];
+        const semTotal = [];
+        this.apontamentosManuais.forEach((r, idx) => {
+            if (r.status === 'Iniciado') {
+                if (parseFloat(r.totalProcesso) > 0) {
+                    aptos.push(idx);
+                } else {
+                    semTotal.push(idx);
+                }
+            }
+        });
+
+        if (aptos.length === 0) {
+            this.showToast('Não é possível parar: todos os registros em andamento estão com TOTAL PROC. zerado.', 'warning');
+            return;
+        }
+
+        if (semTotal.length > 0) {
+            this.showToast(`${semTotal.length} registro(s) com TOTAL PROC. zerado não serão parados.`, 'warning');
+        }
+
+        for (const idx of aptos) {
             await this.pararTempo(idx);
         }
     },
