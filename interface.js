@@ -106,7 +106,7 @@ export function buildUI() {
                 el('thead', null,
                     el('tr', null,
                         el('th', { style: { width: '260px' } }, 'OP / OPERAÇÃO'),
-                        el('th', { style: { width: '80px' } }, 'COLABORADOR'),
+                        el('th', { style: { width: '110px', textAlign: 'center' } }, 'COLABORADOR'),
                         el('th', { style: { width: '120px' } }, 'OBSERVAÇÃO'),
                         el('th', { style: { width: '100px' } }, 'TIPO PESO'),
                         el('th', { style: { textAlign: 'center', width: '200px' } }, 'PESAGEM'),

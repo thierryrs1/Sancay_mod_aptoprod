@@ -42,11 +42,13 @@ export const app = {
     loadColaboradores: async function () {
         try {
             const persData = await api.getColaboradores();
+            this.colaboradoresLista = Array.isArray(persData) ? persData : [];
             const datalist = document.getElementById('persList');
-            if (datalist && persData && persData.length > 0) {
+            if (datalist && this.colaboradoresLista.length > 0) {
                 datalist.innerHTML = '';
-                persData.forEach(p => {
-                    const id = p.Code || p.PERS_ID || p.PersID || p.id || p.ID || p;
+                this.colaboradoresLista.forEach(p => {
+                    if (!p) return;
+                    const id = p.Code || p.PERS_ID || p.PersID || p.id || p.ID || (typeof p === 'object' ? Object.values(p)[0] : p);
                     const name = p.NAME || p.Name || p.Nome || p.Description || '';
                     const opt = document.createElement('option');
                     opt.value = name ? `${id} - ${name}` : id;
@@ -55,6 +57,23 @@ export const app = {
             }
         } catch (e) {
             console.error("Falha ao carregar lista de colaboradores.", e);
+        }
+    },
+
+    getColaboradorNome: function (id) {
+        if (!id || !this.colaboradoresLista) return '';
+        const cleanId = String(id).trim().toLowerCase();
+        try {
+            const found = this.colaboradoresLista.find(p => {
+                if (!p) return false;
+                const pId = String(p.Code || p.PERS_ID || p.PersID || p.id || p.ID || '').trim().toLowerCase();
+                return pId === cleanId;
+            });
+            if (!found) return '';
+            if (typeof found === 'string' || typeof found === 'number') return '';
+            return found.NAME || found.Name || found.Nome || found.Description || '';
+        } catch (e) {
+            return '';
         }
     },
 
@@ -386,6 +405,16 @@ export const app = {
         const selIndex = this.selectedOpModalIndex !== undefined ? this.selectedOpModalIndex : 0;
         const sel = this.selectedOperations[selIndex] || this.selectedOperations[0];
 
+        let colabId = persInput;
+        let colabNome = '';
+        if (persInput.includes('-')) {
+            const parts = persInput.split('-');
+            colabId = parts[0].trim();
+            colabNome = parts.slice(1).join('-').trim();
+        } else {
+            colabNome = this.getColaboradorNome(colabId);
+        }
+
         this.apontamentosManuais.unshift({
             id: Date.now() + Math.random(),
             belnrId: sel.op.BELNR_ID,
@@ -395,7 +424,8 @@ export const app = {
             lote: sel.pos.DistNumber || '',
             itemCode: sel.pos.ItemCode,
             itemName: sel.pos.ItemName,
-            colaborador: persInput.split('-')[0].trim(),
+            colaborador: colabId,
+            colaboradorNome: colabNome,
             operacaoNome: sel.rot.AG_ID,
             observacao: '', // Observação vazia por padrão
             tipoPeso: 'Coleta',
@@ -426,9 +456,10 @@ export const app = {
 
             const isDone = reg.status === 'Finalizado';
             const isIniciado = reg.status === 'Iniciado';
+            const colabNome = reg.colaboradorNome || this.getColaboradorNome(reg.colaborador);
 
             tr.innerHTML = `
-                <td>
+                <td style="vertical-align: top;">
                     <div style="display: flex; flex-direction: column; gap: 3px; padding: 4px 0;">
                         <div style="font-weight: 700; color: var(--primary); font-size: 0.95rem; margin-bottom: 2px;">OP ${reg.belnrId} / ${reg.belposId} / ${reg.posText || reg.posId}</div>
                         ${reg.lote ? `<div style="font-size: 0.75rem; font-weight: 600; color: #3b82f6;"> ${reg.lote}</div>` : ''}
@@ -437,7 +468,12 @@ export const app = {
                         <div style="font-size: 0.75rem; font-weight: 600; color: #475569;">${reg.operacaoNome}</div>
                     </div>
                 </td>
-                <td><span class="badge badge-gray">${reg.colaborador}</span></td>
+                <td style="text-align: center; vertical-align: top;">
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 4px; padding-top: 4px;">
+                        <span class="badge badge-gray" style="font-weight: 700;">${reg.colaborador}</span>
+                        ${colabNome ? `<div style="font-size: 0.75rem; color: #475569; font-weight: 600; text-align: center; max-width: 120px; line-height: 1.2; word-wrap: break-word;">${colabNome}</div>` : ''}
+                    </div>
+                </td>
                 
                 <td>
                     <select class="form-control" style="width:130px; font-size: 0.8em;" onchange="app.atualizarCampo(${index}, 'observacao', this.value)" ${isDone ? 'disabled' : ''}>
