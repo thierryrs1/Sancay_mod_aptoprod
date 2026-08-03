@@ -176,7 +176,12 @@ export const app = {
                                     <span style="font-size: 0.65rem; color: #64748b; text-align: right; margin-top: -2px; font-weight: 600;">${perc.toFixed(1)}%</span>
                                 </div>
                             </td>
-                            <td><span class="badge badge-gray" style="background-color: #64748b; color: white;"><i class="fa-solid fa-users" style="margin-right: 4px;"></i> ${rot.DistinctUsers || 0}</span></td>
+                            <td>
+                                <div style="display: flex; gap: 4px; align-items: center;">
+                                    <span class="badge badge-gray" style="background-color: #64748b; color: white;"><i class="fa-solid fa-users" style="margin-right: 4px;"></i> ${rot.DistinctUsers || 0}</span>
+                                    ${(rot.TimeReceiptRunning && rot.TimeReceiptRunning.length > 0) ? `<span class="badge" style="background-color: #10b981; color: white; padding: 4px 8px; font-size: 0.75rem; border-radius: 6px;" title="${rot.TimeReceiptRunning.length} colaborador(es) em andamento"><i class="fa-solid fa-play" style="font-size: 0.65rem; margin-right: 2px;"></i> ${rot.TimeReceiptRunning.length}</span>` : ''}
+                                </div>
+                            </td>
                             <td style="text-align: right;">
                                 <button class="btn" onclick="app.abrirApontamento(${op.BELNR_ID}, ${pos.BELPOS_ID}, ${rot.POS_ID})">
                                     <i class="fa-solid fa-play"></i> Iniciar
@@ -252,17 +257,54 @@ export const app = {
             const pos = sel.pos;
             const operacao = sel.rot;
 
-            // Drafts
+            // 1. Apontamentos em Andamento (TimeReceiptRunning) vindos da API
+            if (operacao.TimeReceiptRunning && operacao.TimeReceiptRunning.length > 0) {
+                operacao.TimeReceiptRunning.forEach(trr => {
+                    this.apontamentosManuais.push({
+                        id: 'running_' + trr.BUCHNR_ID + '_' + Math.random(),
+                        systemNumber: trr.BUCHNR_ID,
+                        belnrId: op.BELNR_ID,
+                        belposId: pos.BELPOS_ID,
+                        posId: operacao.POS_ID,
+                        posText: operacao.POS_TEXT || operacao.POS_ID,
+                        lote: pos.DistNumber || '',
+                        itemCode: pos.ItemCode,
+                        itemName: pos.ItemName,
+                        colaborador: trr.PERS_ID || '',
+                        colaboradorNome: trr.DisplayName || this.getColaboradorNome(trr.PERS_ID) || '',
+                        operacaoNome: operacao.AG_ID,
+                        observacao: '',
+                        tipoPeso: 'Coleta',
+                        tara: 0,
+                        pesoBruto: '',
+                        pesoLiquido: 0,
+                        totalProcesso: 0,
+                        tempo: 0,
+                        startDateTime: trr.StartDateTime || '',
+                        status: 'Iniciado'
+                    });
+                });
+            }
+
+            // 2. Drafts locais em cache (apenas registros que não estejam duplicados)
             const draftKey = `sancay_drafts_${op.BELNR_ID}_${pos.BELPOS_ID}_${operacao.POS_ID}`;
             const savedDrafts = localStorage.getItem(draftKey);
             if (savedDrafts) {
                 try {
                     const drafts = JSON.parse(savedDrafts);
-                    drafts.forEach(d => this.apontamentosManuais.push(d));
+                    drafts.forEach(d => {
+                        const alreadyAdded = this.apontamentosManuais.some(m => 
+                            (m.systemNumber && d.systemNumber && m.systemNumber == d.systemNumber) ||
+                            (m.status === 'Iniciado' && d.status === 'Iniciado' && m.colaborador == d.colaborador && m.posId == d.posId)
+                        );
+                        if (!alreadyAdded) {
+                            this.apontamentosManuais.push(d);
+                        }
+                    });
                 } catch (e) { console.error('Erro ler drafts', e); }
             }
 
-            // Existentes
+            // 3. Apontamentos finalizados existentes (TimeReceipt)
             if (operacao.TimeReceipt && operacao.TimeReceipt.length > 0) {
                 const sortedReceipts = [...operacao.TimeReceipt].sort((a, b) => {
                     return new Date(b.UpdateDate || 0) - new Date(a.UpdateDate || 0);
@@ -278,6 +320,7 @@ export const app = {
                         itemCode: pos.ItemCode,
                         itemName: pos.ItemName,
                         colaborador: tr.PersonnelId || tr.PERS_ID || '',
+                        colaboradorNome: this.getColaboradorNome(tr.PersonnelId || tr.PERS_ID) || '',
                         operacaoNome: operacao.AG_ID,
                         observacao: tr.Remarks || '',
                         tara: 0,
@@ -472,6 +515,7 @@ export const app = {
                     <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 4px; padding-top: 4px;">
                         <span class="badge badge-gray" style="font-weight: 700;">${reg.colaborador}</span>
                         ${colabNome ? `<div style="font-size: 0.75rem; color: #475569; font-weight: 600; text-align: center; max-width: 120px; line-height: 1.2; word-wrap: break-word;">${colabNome}</div>` : ''}
+                        ${isIniciado && reg.startDateTime ? `<span style="font-size: 0.7rem; color: #0284c7; font-weight: 600; margin-top: 2px;"><i class="fa-regular fa-clock"></i> ${reg.startDateTime.includes(' ') ? reg.startDateTime.split(' ')[1] : reg.startDateTime}</span>` : ''}
                     </div>
                 </td>
                 
@@ -522,6 +566,8 @@ export const app = {
                 <td style="text-align: center; vertical-align: top;">
                     ${isDone
                     ? `<span class="badge badge-gray"><i class="fa-solid fa-check"></i> Salvo</span>`
+                    : isIniciado
+                    ? `<span class="badge" style="background-color: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; padding: 5px 10px; font-size: 0.75rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-spinner fa-spin"></i> Em andamento</span>`
                     : `<button id="btn_save_${index}" class="btn btn-success" onclick="app.finalizarRegistro(${index})" style="padding: 6px 12px; font-size: 0.8rem;"><i class="fa-solid fa-check"></i> Salvar</button>`
                 }
                 </td>
