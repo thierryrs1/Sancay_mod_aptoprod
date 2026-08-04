@@ -100,6 +100,22 @@ export const app = {
         }
     },
 
+    getRecursoNome: function (id) {
+        if (!id || !this.persResourcesCache) return '';
+        const cleanId = String(id).trim().toLowerCase();
+        try {
+            const found = this.persResourcesCache.find(r => {
+                if (!r) return false;
+                const rId = String(r.APLATZ_ID || '').trim().toLowerCase();
+                return rId === cleanId;
+            });
+            if (!found) return '';
+            return found.BEZ || '';
+        } catch (e) {
+            return '';
+        }
+    },
+
     switchTab: function (tabNum) {
         document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
@@ -298,6 +314,7 @@ export const app = {
             // 1. Apontamentos em Andamento (TimeReceiptRunning) vindos da API
             if (operacao.TimeReceiptRunning && operacao.TimeReceiptRunning.length > 0) {
                 operacao.TimeReceiptRunning.forEach(trr => {
+                    const recId = trr.ResourceId || trr.APLATZ_ID || '';
                     this.apontamentosManuais.push({
                         id: 'running_' + trr.BUCHNR_ID + '_' + Math.random(),
                         systemNumber: trr.BUCHNR_ID,
@@ -311,6 +328,8 @@ export const app = {
                         itemName: pos.ItemName,
                         colaborador: trr.PERS_ID || '',
                         colaboradorNome: trr.DisplayName || this.getColaboradorNome(trr.PERS_ID) || '',
+                        recurso: recId,
+                        recursoNome: this.getRecursoNome(recId) || '',
                         operacaoNome: operacao.AG_ID,
                         observacao: '',
                         tipoPeso: 'Coleta',
@@ -352,6 +371,7 @@ export const app = {
                     return new Date(b.UpdateDate || 0) - new Date(a.UpdateDate || 0);
                 });
                 sortedReceipts.forEach(tr => {
+                    const recId = tr.ResourceId || tr.APLATZ_ID || '';
                     this.apontamentosManuais.push({
                         id: tr.LineNum || tr.DocEntry || Math.random(),
                         belnrId: op.BELNR_ID,
@@ -364,6 +384,8 @@ export const app = {
                         itemName: pos.ItemName,
                         colaborador: tr.PersonnelId || tr.PERS_ID || '',
                         colaboradorNome: this.getColaboradorNome(tr.PersonnelId || tr.PERS_ID) || '',
+                        recurso: recId,
+                        recursoNome: this.getRecursoNome(recId) || '',
                         operacaoNome: operacao.AG_ID,
                         observacao: tr.Remarks || '',
                         tara: 0,
@@ -797,6 +819,14 @@ export const app = {
                         ${isIniciado && reg.startDateTime ? `<span style="font-size: 0.7rem; color: #0284c7; font-weight: 600; margin-top: 2px;"><i class="fa-regular fa-clock"></i> ${reg.startDateTime.includes(' ') ? reg.startDateTime.split(' ')[1] : reg.startDateTime}</span>` : ''}
                     </div>
                 </td>
+                <td style="text-align: center; vertical-align: top;">
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 4px; padding-top: 4px;">
+                        ${reg.recurso ? `
+                            <span class="badge" style="background-color: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; font-weight: 700; font-size: 0.8rem; padding: 3px 8px; border-radius: 6px;">${reg.recurso}</span>
+                            ${(reg.recursoNome && reg.recursoNome !== reg.recurso) ? `<div style="font-size: 0.72rem; color: #475569; font-weight: 600; text-align: center; max-width: 125px; line-height: 1.2; word-wrap: break-word;">${reg.recursoNome.includes(' - ') ? reg.recursoNome.split(' - ').slice(1).join(' - ') : reg.recursoNome}</div>` : ''}
+                        ` : `<span style="color: #94a3b8; font-size: 0.8rem;">--</span>`}
+                    </div>
+                </td>
                 
                 <td>
                     <select class="form-control" style="width:130px; font-size: 0.8em;" onchange="app.atualizarCampo(${index}, 'observacao', this.value)" ${isDone ? 'disabled' : ''}>
@@ -1024,7 +1054,7 @@ export const app = {
         };
 
         if (reg.recurso) {
-            payload["ResourceCode"] = String(reg.recurso);
+            payload["ResourceId"] = String(reg.recurso);
         }
 
         if (isRunning) {
@@ -1214,6 +1244,10 @@ export const app = {
             "LineNumber": parseInt(reg.belposId, 10),
             "LineNumber2": parseInt(reg.posId, 10)
         };
+
+        if (reg.recurso) {
+            payload["ResourceId"] = String(reg.recurso);
+        }
 
         return new Promise((resolve) => {
             api.serviceLayerPost('/odata4/v1/TimeReceiptRunning', payload, (sErr, result) => {
