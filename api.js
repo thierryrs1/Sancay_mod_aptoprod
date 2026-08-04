@@ -45,6 +45,21 @@ export const api = {
         }
     },
 
+    getPersResources: async () => {
+        try {
+            const response = await fetch('http://192.168.30.14:9908/api/v1/getPersResources', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
+            if (!response.ok) throw new Error('Erro ao buscar recursos dos colaboradores');
+            return await response.json();
+        } catch (error) {
+            console.error('Falha de Comunicação ao buscar getPersResources:', error);
+            return [];
+        }
+    },
+
     sendApontamento: async (payload) => {
         console.log('Enviando Payload Final para o BEAS:', payload);
         return true;

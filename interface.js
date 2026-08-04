@@ -132,15 +132,33 @@ export function buildUI() {
     const modalColaborador = el('div', { className: 'custom-modal', id: 'modalColaborador' },
         el('div', { className: 'custom-modal-content', style: { maxWidth: '650px', width: '92%', display: 'flex', flexDirection: 'column' } },
             el('h3', null, 'Adicionar Registro'),
-            el('p', { className: 'custom-modal-desc' }, 'Informe o colaborador e selecione a operação.'),
+            el('p', { className: 'custom-modal-desc' }, 'Informe o colaborador, selecione o recurso e a operação.'),
             el('div', { className: 'form-group' },
                 el('label', { style: { display: 'block', marginBottom: '5px', fontWeight: '500', color: '#475569', fontSize: '0.9rem' } }, 'Colaborador'),
-                el('input', { type: 'text', id: 'inputPersId', list: 'persList', className: 'form-control', placeholder: 'Ex: 9999 ou digite o nome...', autocomplete: 'off' }),
-                el('datalist', { id: 'persList' })
+                el('div', { className: 'autocomplete-wrapper' },
+                    el('input', { 
+                        type: 'text', 
+                        id: 'inputPersId', 
+                        className: 'form-control', 
+                        placeholder: 'Digite o código ou nome (Ex: 09 ou Support)...', 
+                        autocomplete: 'off',
+                        oninput: (e) => app.onPersInput(e),
+                        onkeydown: (e) => app.onPersKeydown(e),
+                        onfocus: () => app.showPersDropdown(),
+                        onclick: () => app.showPersDropdown()
+                    }),
+                    el('div', { id: 'persDropdown', className: 'autocomplete-dropdown' })
+                )
+            ),
+            el('div', { className: 'form-group' },
+                el('label', { style: { display: 'block', marginBottom: '5px', fontWeight: '500', color: '#475569', fontSize: '0.9rem' } }, 'Recurso'),
+                el('select', { id: 'selectRecurso', className: 'form-control' },
+                    el('option', { value: '' }, 'Selecione um colaborador...')
+                )
             ),
             el('div', { className: 'form-group' },
                 el('label', { style: { display: 'block', marginBottom: '5px', fontWeight: '500', color: '#475569', fontSize: '0.9rem' } }, 'Selecione a Operação'),
-                el('div', { id: 'cardsOpModal', style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: '12px', maxHeight: '320px', overflowY: 'auto', padding: '8px 10px 8px 6px' } })
+                el('div', { id: 'cardsOpModal', style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: '12px', maxHeight: '280px', overflowY: 'auto', padding: '8px 10px 8px 6px' } })
             ),
             el('div', { className: 'btn-group', style: { marginTop: 'auto', paddingTop: '10px' } },
                 el('button', { className: 'btn btn-outline', onclick: () => app.fecharModalColaborador() }, 'Cancelar'),

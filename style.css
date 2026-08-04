@@ -425,6 +425,7 @@ body {
     backdrop-filter: blur(4px);
     align-items: center;
     justify-content: center;
+    padding-bottom: 5vh;
     z-index: 1000;
     opacity: 0;
     transition: opacity 0.3s ease;
@@ -441,6 +442,8 @@ body {
     border-radius: 16px;
     width: 92%;
     max-width: 650px;
+    max-height: 90vh;
+    overflow-y: auto;
     box-shadow: var(--shadow-lg);
     transform: scale(0.95);
     transition: transform 0.3s ease;
@@ -458,7 +461,7 @@ body {
 
 .custom-modal-desc {
     color: var(--text-muted);
-    margin-bottom: 25px;
+    margin-bottom: 20px;
     font-size: 0.95rem;
 }
 
@@ -498,6 +501,62 @@ body {
     border-color: var(--primary);
     background: var(--surface);
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Custom Autocomplete Dropdown */
+.autocomplete-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.autocomplete-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    max-height: 220px;
+    overflow-y: auto;
+    background: #ffffff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    z-index: 1100;
+    display: none;
+}
+
+.autocomplete-dropdown.active {
+    display: block;
+}
+
+.autocomplete-item {
+    padding: 10px 14px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid #f1f5f9;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.autocomplete-item:last-child {
+    border-bottom: none;
+}
+
+.autocomplete-item:hover, .autocomplete-item.selected {
+    background: #eff6ff;
+    color: var(--primary);
+}
+
+.autocomplete-item .badge-pers-id {
+    font-weight: 700;
+    color: var(--primary);
+    background: #e0e7ff;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    letter-spacing: 0.02em;
 }
 
 .btn-group {

@@ -5,6 +5,7 @@ export const app = {
     opsCache: [],
     listaPlana: [],
     stopReasonsCache: [],
+    persResourcesCache: [],
     apontamentosManuais: [], // Store current rows
     selectedOperations: [],
     checkedKeys: new Set(), // Armazena checkboxes marcados
@@ -35,39 +36,61 @@ export const app = {
 
         if (typeof ux !== 'undefined') ux.set('appSave', 'hidden');
         this.loadColaboradores();
+        this.loadPersResources();
         this.buildListaPlana();
         this.renderLista();
+    },
+
+    loadPersResources: async function () {
+        try {
+            const data = await api.getPersResources();
+            this.persResourcesCache = Array.isArray(data) ? data : [];
+        } catch (e) {
+            console.error("Falha ao carregar recursos dos colaboradores.", e);
+        }
     },
 
     loadColaboradores: async function () {
         try {
             const persData = await api.getColaboradores();
             this.colaboradoresLista = Array.isArray(persData) ? persData : [];
-            const datalist = document.getElementById('persList');
-            if (datalist && this.colaboradoresLista.length > 0) {
-                datalist.innerHTML = '';
-                this.colaboradoresLista.forEach(p => {
-                    if (!p) return;
-                    const id = p.Code || p.PERS_ID || p.PersID || p.id || p.ID || (typeof p === 'object' ? Object.values(p)[0] : p);
-                    const name = p.NAME || p.Name || p.Nome || p.Description || '';
-                    const opt = document.createElement('option');
-                    opt.value = name ? `${id} - ${name}` : id;
-                    datalist.appendChild(opt);
-                });
-            }
+            this.renderPersList();
         } catch (e) {
             console.error("Falha ao carregar lista de colaboradores.", e);
+        }
+    },
+
+    renderPersList: function () {
+        const datalist = document.getElementById('persList');
+        if (datalist && this.colaboradoresLista && this.colaboradoresLista.length > 0) {
+            datalist.innerHTML = '';
+            this.colaboradoresLista.forEach(p => {
+                if (!p) return;
+                const id = String(p.Code || p.PERS_ID || p.PersID || p.id || p.ID || '').trim();
+                const name = String(p.NAME || p.Name || p.Nome || p.Description || '').trim();
+                
+                const opt = document.createElement('option');
+                opt.value = name ? `${id} - ${name}` : id;
+                opt.textContent = name ? `${name} (${id})` : id;
+                datalist.appendChild(opt);
+            });
         }
     },
 
     getColaboradorNome: function (id) {
         if (!id || !this.colaboradoresLista) return '';
         const cleanId = String(id).trim().toLowerCase();
+        const numId = parseInt(cleanId, 10);
         try {
             const found = this.colaboradoresLista.find(p => {
                 if (!p) return false;
                 const pId = String(p.Code || p.PERS_ID || p.PersID || p.id || p.ID || '').trim().toLowerCase();
-                return pId === cleanId;
+                const pNum = parseInt(pId, 10);
+                if (pId === cleanId) return true;
+                if (!isNaN(numId) && !isNaN(pNum) && numId === pNum) return true;
+                const name = String(p.NAME || p.Name || p.Nome || p.Description || '').trim().toLowerCase();
+                if (name === cleanId) return true;
+                return false;
             });
             if (!found) return '';
             if (typeof found === 'string' || typeof found === 'number') return '';
@@ -412,8 +435,217 @@ export const app = {
         modal.classList.add('active');
     },
 
+    persDropdownIndex: -1,
+
+    showPersDropdown: function () {
+        const input = document.getElementById('inputPersId');
+        const query = input ? input.value.trim().toLowerCase() : '';
+        this.renderPersDropdown(query);
+    },
+
+    hidePersDropdown: function () {
+        const dropdown = document.getElementById('persDropdown');
+        if (dropdown) dropdown.classList.remove('active');
+        this.persDropdownIndex = -1;
+    },
+
+    onPersInput: function (e) {
+        const query = e.target.value.trim().toLowerCase();
+        this.renderPersDropdown(query);
+        this.onColaboradorChanged();
+    },
+
+    renderPersDropdown: function (query) {
+        const dropdown = document.getElementById('persDropdown');
+        if (!dropdown || !this.colaboradoresLista) return;
+
+        let filtered = this.colaboradoresLista;
+        if (query) {
+            filtered = this.colaboradoresLista.filter(p => {
+                if (!p) return false;
+                const id = String(p.Code || p.PERS_ID || p.PersID || p.id || p.ID || '').toLowerCase();
+                const name = String(p.NAME || p.Name || p.Nome || p.Description || '').toLowerCase();
+                return id.includes(query) || name.includes(query);
+            });
+        }
+
+        dropdown.innerHTML = '';
+        this.persDropdownIndex = -1;
+
+        if (filtered.length === 0) {
+            const noRes = document.createElement('div');
+            noRes.className = 'autocomplete-item';
+            noRes.style.color = '#94a3b8';
+            noRes.style.cursor = 'default';
+            noRes.textContent = 'Nenhum colaborador encontrado';
+            dropdown.appendChild(noRes);
+            dropdown.classList.add('active');
+            return;
+        }
+
+        filtered.forEach((p, index) => {
+            const id = String(p.Code || p.PERS_ID || p.PersID || p.id || p.ID || '').trim();
+            const name = String(p.NAME || p.Name || p.Nome || p.Description || '').trim();
+            const item = document.createElement('div');
+            item.className = 'autocomplete-item';
+            item.setAttribute('data-id', id);
+            item.setAttribute('data-name', name);
+            item.setAttribute('data-index', index);
+            item.innerHTML = `<span class="badge-pers-id">${id}</span> <span>${name}</span>`;
+
+            item.onmousedown = (ev) => {
+                ev.preventDefault();
+                this.selectPersItem(id, name);
+            };
+
+            dropdown.appendChild(item);
+        });
+
+        dropdown.classList.add('active');
+    },
+
+    selectPersItem: function (id, name) {
+        const input = document.getElementById('inputPersId');
+        if (input) {
+            input.value = name ? `${id} - ${name}` : id;
+        }
+        this.hidePersDropdown();
+        this.onColaboradorChanged();
+    },
+
+    onPersKeydown: function (e) {
+        const dropdown = document.getElementById('persDropdown');
+        if (!dropdown || !dropdown.classList.contains('active')) {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                this.showPersDropdown();
+            }
+            return;
+        }
+
+        const items = dropdown.querySelectorAll('.autocomplete-item:not([style*="cursor: default"])');
+        if (items.length === 0) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            this.persDropdownIndex = (this.persDropdownIndex + 1) % items.length;
+            this.highlightPersDropdownItem(items);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            this.persDropdownIndex = (this.persDropdownIndex - 1 + items.length) % items.length;
+            this.highlightPersDropdownItem(items);
+        } else if (e.key === 'Enter') {
+            if (this.persDropdownIndex >= 0 && this.persDropdownIndex < items.length) {
+                e.preventDefault();
+                const sel = items[this.persDropdownIndex];
+                const id = sel.getAttribute('data-id');
+                const name = sel.getAttribute('data-name');
+                this.selectPersItem(id, name);
+            }
+        } else if (e.key === 'Escape') {
+            this.hidePersDropdown();
+        }
+    },
+
+    highlightPersDropdownItem: function (items) {
+        items.forEach((it, i) => {
+            if (i === this.persDropdownIndex) {
+                it.classList.add('selected');
+                it.scrollIntoView({ block: 'nearest' });
+            } else {
+                it.classList.remove('selected');
+            }
+        });
+    },
+
+    onColaboradorChanged: function () {
+        const inputEl = document.getElementById('inputPersId');
+        const persInput = inputEl ? inputEl.value.trim() : '';
+        const selectRecurso = document.getElementById('selectRecurso');
+        if (!selectRecurso) return;
+
+        selectRecurso.innerHTML = '';
+
+        if (!persInput) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = 'Selecione um colaborador primeiro...';
+            selectRecurso.appendChild(opt);
+            return;
+        }
+
+        let colabId = persInput;
+        if (persInput.includes('-')) {
+            colabId = persInput.split('-')[0].trim();
+        } else if (this.colaboradoresLista && this.colaboradoresLista.length > 0) {
+            const cleanSearch = persInput.toLowerCase();
+            const found = this.colaboradoresLista.find(p => {
+                if (!p) return false;
+                const name = String(p.NAME || p.Name || p.Nome || p.Description || '').trim().toLowerCase();
+                const id = String(p.Code || p.PERS_ID || p.PersID || p.id || p.ID || '').trim().toLowerCase();
+                return id === cleanSearch || name === cleanSearch || name.startsWith(cleanSearch) || name.includes(cleanSearch);
+            });
+            if (found) {
+                colabId = String(found.Code || found.PERS_ID || found.PersID || found.id || found.ID).trim();
+            }
+        }
+
+        // Filtra recursos associados ao PERS_ID (comparando string e numero)
+        const cleanColabId = String(colabId).trim();
+        const numColabId = parseInt(cleanColabId, 10);
+
+        const recursos = (this.persResourcesCache || []).filter(r => {
+            const rPers = String(r.PERS_ID || '').trim();
+            const rNum = parseInt(rPers, 10);
+            return rPers === cleanColabId || (!isNaN(numColabId) && !isNaN(rNum) && numColabId === rNum);
+        });
+
+        if (recursos.length === 0) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = 'Nenhum recurso vinculado';
+            selectRecurso.appendChild(opt);
+        } else {
+            const optDefault = document.createElement('option');
+            optDefault.value = '';
+            optDefault.textContent = '-- Selecione o Recurso --';
+            selectRecurso.appendChild(optDefault);
+
+            const seen = new Set();
+            recursos.forEach(r => {
+                const id = String(r.APLATZ_ID || '').trim();
+                const desc = String(r.BEZ || '').trim();
+                if (id && !seen.has(id)) {
+                    seen.add(id);
+                    const opt = document.createElement('option');
+                    opt.value = id;
+                    opt.textContent = desc ? `${id} - ${desc}` : id;
+                    selectRecurso.appendChild(opt);
+                }
+            });
+
+            // Se tiver apenas 1 recurso, seleciona-o automaticamente
+            if (seen.size === 1) {
+                selectRecurso.selectedIndex = 1;
+            }
+        }
+    },
+
     abrirModalColaborador: function () {
         document.getElementById('inputPersId').value = '';
+        this.hidePersDropdown();
+
+        const selectRecurso = document.getElementById('selectRecurso');
+        if (selectRecurso) {
+            selectRecurso.innerHTML = '<option value="">Selecione um colaborador primeiro...</option>';
+        }
+
+        if (!this.persResourcesCache || this.persResourcesCache.length === 0) {
+            this.loadPersResources();
+        }
+
+        if (!this.colaboradoresLista || this.colaboradoresLista.length === 0) {
+            this.loadColaboradores();
+        }
 
         const container = document.getElementById('cardsOpModal');
         if (container) {
@@ -447,9 +679,14 @@ export const app = {
         }
 
         document.getElementById('modalColaborador').classList.add('active');
+        setTimeout(() => {
+            const input = document.getElementById('inputPersId');
+            if (input) input.focus();
+        }, 100);
     },
 
     fecharModalColaborador: function () {
+        this.hidePersDropdown();
         document.getElementById('modalColaborador').classList.remove('active');
     },
 
@@ -475,8 +712,24 @@ export const app = {
             colabId = parts[0].trim();
             colabNome = parts.slice(1).join('-').trim();
         } else {
-            colabNome = this.getColaboradorNome(colabId);
+            const cleanSearch = persInput.toLowerCase();
+            const found = (this.colaboradoresLista || []).find(p => {
+                if (!p) return false;
+                const name = String(p.NAME || p.Name || p.Nome || p.Description || '').trim().toLowerCase();
+                const id = String(p.Code || p.PERS_ID || p.PersID || p.id || p.ID || '').trim().toLowerCase();
+                return id === cleanSearch || name === cleanSearch || name.startsWith(cleanSearch) || name.includes(cleanSearch);
+            });
+            if (found) {
+                colabId = String(found.Code || found.PERS_ID || found.PersID || found.id || found.ID).trim();
+                colabNome = String(found.NAME || found.Name || found.Nome || found.Description || '').trim();
+            } else {
+                colabNome = this.getColaboradorNome(colabId);
+            }
         }
+
+        const selectRecurso = document.getElementById('selectRecurso');
+        const recursoSelecionado = selectRecurso ? selectRecurso.value : '';
+        const recursoTexto = (selectRecurso && selectRecurso.selectedOptions && selectRecurso.selectedOptions[0]) ? selectRecurso.selectedOptions[0].textContent : '';
 
         this.apontamentosManuais.unshift({
             id: Date.now() + Math.random(),
@@ -490,6 +743,8 @@ export const app = {
             itemName: sel.pos.ItemName,
             colaborador: colabId,
             colaboradorNome: colabNome,
+            recurso: recursoSelecionado,
+            recursoNome: recursoTexto,
             operacaoNome: sel.rot.AG_ID,
             observacao: '', // Observação vazia por padrão
             tipoPeso: 'Coleta',
@@ -767,6 +1022,10 @@ export const app = {
             "ManualBooking": false,
             "Remarks": reg.observacao || (isRunning ? "Apontamento Start/Stop" : "")
         };
+
+        if (reg.recurso) {
+            payload["ResourceCode"] = String(reg.recurso);
+        }
 
         if (isRunning) {
             const sysNum = reg.systemNumber || (index !== null && document.getElementById(`systemNumber_${index}`) ? document.getElementById(`systemNumber_${index}`).value : null);
@@ -1123,6 +1382,15 @@ export const app = {
 };
 
 window.app = app;
+
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.autocomplete-wrapper')) {
+        if (window.app && typeof window.app.hidePersDropdown === 'function') {
+            window.app.hidePersDropdown();
+        }
+    }
+});
+
 document.addEventListener('DOMContentLoaded', () => {
     import('./interface.js').then(module => {
         module.buildUI();
