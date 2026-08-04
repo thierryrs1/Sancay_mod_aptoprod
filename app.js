@@ -161,7 +161,12 @@ export const app = {
                             <td><div class="text-bold" style="color: var(--primary);">${op.BELNR_ID}</div></td>
                             <td><div class="text-bold" style="color: var(--primary);">${pos.BELPOS_ID}</div></td>
                             <td><div class="text-bold" style="color: var(--primary);">${rot.POS_TEXT || rot.POS_ID}</div></td>
-                            <td><div class="text-bold" style="color: #475569;">${rot.AG_ID}</div></td>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span class="text-bold" style="color: #475569;">${rot.AG_ID}</span>
+                                    ${rot.LastOperation === 'Y' ? `<i class="fa-solid fa-circle" style="color: #2563eb; font-size: 0.55rem;" title="Última Operação"></i>` : ''}
+                                </div>
+                            </td>
                             <td>
                                 <div class="text-bold">${pos.ItemCode} - ${pos.ItemName}</div>
                                 <div class="text-muted" style="font-size: 0.85em;">${op.AUFTRAG}</div>
@@ -267,6 +272,7 @@ export const app = {
                         belposId: pos.BELPOS_ID,
                         posId: operacao.POS_ID,
                         posText: operacao.POS_TEXT || operacao.POS_ID,
+                        lastOperation: operacao.LastOperation || 'N',
                         lote: pos.DistNumber || '',
                         itemCode: pos.ItemCode,
                         itemName: pos.ItemName,
@@ -293,6 +299,9 @@ export const app = {
                 try {
                     const drafts = JSON.parse(savedDrafts);
                     drafts.forEach(d => {
+                        if (d.lastOperation === undefined) {
+                            d.lastOperation = operacao.LastOperation || 'N';
+                        }
                         const alreadyAdded = this.apontamentosManuais.some(m => 
                             (m.systemNumber && d.systemNumber && m.systemNumber == d.systemNumber) ||
                             (m.status === 'Iniciado' && d.status === 'Iniciado' && m.colaborador == d.colaborador && m.posId == d.posId)
@@ -316,6 +325,7 @@ export const app = {
                         belposId: pos.BELPOS_ID,
                         posId: operacao.POS_ID,
                         posText: operacao.POS_TEXT || operacao.POS_ID,
+                        lastOperation: operacao.LastOperation || 'N',
                         lote: pos.DistNumber || '',
                         itemCode: pos.ItemCode,
                         itemName: pos.ItemName,
@@ -464,6 +474,7 @@ export const app = {
             belposId: sel.pos.BELPOS_ID,
             posId: sel.rot.POS_ID,
             posText: sel.rot.POS_TEXT || sel.rot.POS_ID,
+            lastOperation: sel.rot.LastOperation || 'N',
             lote: sel.pos.DistNumber || '',
             itemCode: sel.pos.ItemCode,
             itemName: sel.pos.ItemName,
@@ -504,7 +515,10 @@ export const app = {
             tr.innerHTML = `
                 <td style="vertical-align: top;">
                     <div style="display: flex; flex-direction: column; gap: 3px; padding: 4px 0;">
-                        <div style="font-weight: 700; color: var(--primary); font-size: 0.95rem; margin-bottom: 2px;">OP ${reg.belnrId} / ${reg.belposId} / ${reg.posText || reg.posId}</div>
+                        <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: var(--primary); font-size: 0.95rem; margin-bottom: 2px;">
+                            <span>OP ${reg.belnrId} / ${reg.belposId} / ${reg.posText || reg.posId}</span>
+                            ${reg.lastOperation === 'Y' ? `<i class="fa-solid fa-circle" style="color: #2563eb; font-size: 0.55rem;" title="Última Operação"></i>` : ''}
+                        </div>
                         ${reg.lote ? `<div style="font-size: 0.75rem; font-weight: 600; color: #3b82f6;"> ${reg.lote}</div>` : ''}
                         <div style="font-size: 0.75rem; font-weight: 600; color: #475569;">${reg.itemCode}</div>
                         <div style="font-size: 0.75rem; font-weight: 600; color: #475569; word-wrap: break-word;">${reg.itemName}</div>
@@ -695,6 +709,142 @@ export const app = {
         }
     },
 
+    montarTimeReceiptPayload: async function (reg, isRunning = false, index = null) {
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const endDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+        const endTime = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+        let startDate = endDate;
+        let startTime = endTime;
+        let duration = parseInt(reg.tempo, 10) || 0;
+
+        if (reg.startDateTime) {
+            const parts = reg.startDateTime.split(' ');
+            if (parts[0]) startDate = parts[0];
+            if (parts[1]) startTime = parts[1].substring(0, 5);
+
+            if (duration <= 0) {
+                const startDateObj = new Date(reg.startDateTime.replace(/-/g, '/'));
+                if (!isNaN(startDateObj.getTime())) {
+                    duration = Math.max(1, Math.round((now.getTime() - startDateObj.getTime()) / (60 * 1000)));
+                }
+            }
+        } else if (duration > 0) {
+            const startMs = now.getTime() - (duration * 60 * 1000);
+            const startObj = new Date(startMs);
+            startDate = `${startObj.getFullYear()}-${pad(startObj.getMonth() + 1)}-${pad(startObj.getDate())}`;
+            startTime = `${pad(startObj.getHours())}:${pad(startObj.getMinutes())}`;
+        }
+
+        if (duration <= 0) duration = 1;
+
+        const totalProc = parseFloat(reg.totalProcesso) || 0;
+        const personnelId = (window.appInfo && window.appInfo.uid) ? String(window.appInfo.uid) : String(reg.colaborador || '');
+
+        const payload = {
+            "DocEntry": parseInt(reg.belnrId, 10),
+            "LineNumber": parseInt(reg.belposId, 10),
+            "LineNumber2": parseInt(reg.posId, 10),
+            "PersonnelId": personnelId,
+            "QuantityGoodRUoM": totalProc,
+            "StartDate": startDate,
+            "StartTime": startTime,
+            "EndDate": endDate,
+            "EndTime": endTime,
+            "Duration": duration,
+            "CloseEntry": false,
+            "ManualBooking": false,
+            "Remarks": reg.observacao || (isRunning ? "Apontamento Start/Stop" : "")
+        };
+
+        if (isRunning) {
+            const sysNum = reg.systemNumber || (index !== null && document.getElementById(`systemNumber_${index}`) ? document.getElementById(`systemNumber_${index}`).value : null);
+            if (sysNum) {
+                payload["FromTimeReceiptRunning"] = parseInt(sysNum, 10);
+                payload["TimeReceiptRunningId"] = parseInt(sysNum, 10);
+            }
+        }
+
+        // Issue e Receipt são gerados exclusivamente quando for a última operação (LastOperation === 'Y')
+        let isLastOp = reg.lastOperation === 'Y';
+        if (reg.lastOperation === undefined) {
+            const op = this.opsCache.find(o => o.BELNR_ID == reg.belnrId);
+            const pos = op ? op.WorkOrderPos.find(p => p.BELPOS_ID == reg.belposId) : null;
+            const rot = pos ? pos.WorkorderRouting.find(r => r.POS_ID == reg.posId) : null;
+            if (rot && rot.LastOperation === 'Y') {
+                isLastOp = true;
+                reg.lastOperation = 'Y';
+            }
+        }
+
+        if (isLastOp) {
+            try {
+                const issueData = await api.getTimeReceiptIssue(reg.belnrId, reg.belposId, totalProc);
+                if (Array.isArray(issueData) && issueData.length > 0) {
+                    const issueLines = issueData.map(item => {
+                        const line = {
+                            "ItemCode": item.ART1_ID || item.ItemCode,
+                            "BaseLineNumber2": parseInt(item.POS_ID, 10) || parseInt(reg.posId, 10),
+                            "WhsCode": item.WhsCode || "01.PPR",
+                            "Quantity": parseFloat(item.Quantity) || totalProc
+                        };
+                        // Não cria BatchNumbers quando ManBtchNum === 'N' ou DistNumber for nulo/vazio
+                        if (item.ManBtchNum !== 'N' && item.DistNumber && String(item.DistNumber).trim() !== '') {
+                            line.BatchNumbers = [
+                                {
+                                    "DistNumber": String(item.DistNumber),
+                                    "Quantity": parseFloat(item.Quantity) || totalProc
+                                }
+                            ];
+                        }
+                        return line;
+                    });
+
+                    const firstItem = issueData[0];
+                    const receiptLine = {
+                        "ItemCode": firstItem.ItemCode || reg.itemCode,
+                        "WhsCode": firstItem.WhsCode || "01.PPR",
+                        "Quantity": totalProc
+                    };
+                    const receiptLote = reg.lote || (firstItem.ManBtchNum !== 'N' ? firstItem.DistNumber : null);
+                    if (receiptLote && String(receiptLote).trim() !== '') {
+                        receiptLine.BatchNumbers = [
+                            {
+                                "DistNumber": String(receiptLote),
+                                "Quantity": totalProc
+                            }
+                        ];
+                    }
+
+                    payload["Issue"] = { "Lines": issueLines };
+                    payload["Receipt"] = { "Lines": [receiptLine] };
+                } else {
+                    // Fallback para Receipt caso a API não devolva itens de Issue
+                    const receiptLine = {
+                        "ItemCode": reg.itemCode,
+                        "WhsCode": "01.PPR",
+                        "Quantity": totalProc
+                    };
+                    if (reg.lote && String(reg.lote).trim() !== '') {
+                        receiptLine.BatchNumbers = [
+                            {
+                                "DistNumber": String(reg.lote),
+                                "Quantity": totalProc
+                            }
+                        ];
+                    }
+                    payload["Receipt"] = { "Lines": [receiptLine] };
+                }
+            } catch (err) {
+                console.warn('Erro ao montar Issue/Receipt:', err);
+            }
+        }
+
+        console.log('Payload TimeReceipt montado:', payload);
+        return payload;
+    },
+
     finalizarRegistro: async function (index) {
         const reg = this.apontamentosManuais[index];
 
@@ -710,21 +860,7 @@ export const app = {
 
         if (!confirm("Confirmar a gravação deste apontamento?")) return;
 
-        const hoje = new Date();
-        const docDate = hoje.toISOString().split('T')[0];
-
-        const payload = {
-            "DocEntry": reg.belnrId,
-            "LineNumber": reg.belposId,
-            "LineNumber2": parseInt(reg.posId, 10),
-            "Duration": reg.tempo,
-            "PersonnelId": reg.colaborador,
-            "DocDate": docDate,
-            "QuantityGoodRUoM": reg.totalProcesso,
-            "CloseEntry": false,
-            "ManualBooking": false,
-            "Remarks": reg.observacao
-        };
+        const payload = await this.montarTimeReceiptPayload(reg, false, index);
 
         api.serviceLayerPost('/odata4/v1/TimeReceipt', payload, (sErr, result) => {
             if (sErr) {
@@ -819,8 +955,10 @@ export const app = {
             return;
         }
 
+        const personnelId = (window.appInfo && window.appInfo.uid) ? String(window.appInfo.uid) : String(reg.colaborador);
+
         const payload = {
-            "PersonnelId": String(reg.colaborador),
+            "PersonnelId": personnelId,
             "DocEntry": parseInt(reg.belnrId, 10),
             "LineNumber": parseInt(reg.belposId, 10),
             "LineNumber2": parseInt(reg.posId, 10)
@@ -884,20 +1022,7 @@ export const app = {
             return;
         }
 
-        const sysNum = reg.systemNumber || (document.getElementById(`systemNumber_${index}`) ? document.getElementById(`systemNumber_${index}`).value : null);
-
-        const payload = {
-            "DocEntry": parseInt(reg.belnrId, 10),
-            "LineNumber": parseInt(reg.belposId, 10),
-            "LineNumber2": parseInt(reg.posId, 10),
-            "PersonnelId": String(reg.colaborador),
-            "QuantityGoodRUoM": totalProc,
-            "CloseEntry": false,
-            "ManualBooking": false,
-            "Remarks": reg.observacao || "Apontamento Start/Stop",
-            "FromTimeReceiptRunning": sysNum ? parseInt(sysNum, 10) : 1,
-            "TimeReceiptRunningId": sysNum ? parseInt(sysNum, 10) : 1
-        };
+        const payload = await this.montarTimeReceiptPayload(reg, true, index);
 
         return new Promise((resolve) => {
             api.serviceLayerPost('/odata4/v1/TimeReceipt', payload, (sErr, result) => {

@@ -75,6 +75,27 @@ export const api = {
         }
     },
 
+    getTimeReceiptIssue: async (belnrId, belposId, quantity) => {
+        try {
+            const response = await fetch('http://192.168.30.14:9908/api/v1/getTimeReceiptIssue', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    "BELNR_ID": parseInt(belnrId, 10),
+                    "BELPOS_ID": parseInt(belposId, 10),
+                    "Quantity": parseFloat(quantity)
+                })
+            });
+
+            if (!response.ok) throw new Error('Erro ao buscar dados de Issue da API');
+            const data = await response.json();
+            return Array.isArray(data) ? data : [];
+        } catch (error) {
+            console.error('Falha de Comunicação ao buscar getTimeReceiptIssue:', error);
+            return [];
+        }
+    },
+
     serviceLayerPost(endpoint, payload, callback) {
         if (window.ux && typeof window.ux.saveAll === 'function') {
             window.ux.saveAll(endpoint, payload, function (err, result) {
