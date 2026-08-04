@@ -19,16 +19,24 @@ export function cleanBeasMasks() {
 export const api = {
     getOps: async () => {
         try {
+            const currentUid = (typeof appInfo !== 'undefined' && appInfo?.uid) ? appInfo.uid : (typeof window !== 'undefined' && window.appInfo?.uid ? window.appInfo.uid : null);
+
+            const payload = {
+                "ABGKZ": "N",
+                "Order": "DESC",
+                "Limit": 200,
+                "WEBAPP": "mod_aptoprod"
+            };
+
+            if (currentUid) {
+                payload["PERS_ID"] = currentUid;
+            }
+
             // Chamada real para o seu back-end DIS no HANA
             const response = await fetch('http://192.168.30.14:9908/api/v1/Workorders', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    "ABGKZ": "N",
-                    "Order": "DESC",
-                    "Limit": 200,
-                    "WEBAPP": "mod_aptoprod"
-                })
+                body: JSON.stringify(payload)
             });
 
             if (!response.ok) throw new Error('Erro ao buscar Ordens de Produção da API');

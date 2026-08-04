@@ -35,14 +35,18 @@ export function buildUI() {
 
     // --- Tab 1 ---
     const tabContent1 = el('div', { id: 'tabContent1', className: 'tab-pane active' },
-        el('div', { style: { display: 'flex', gap: '15px', marginBottom: '20px' } },
-            el('div', { className: 'filter-wrapper', style: { flex: 1, marginBottom: 0 } },
+        el('div', { style: { display: 'flex', gap: '15px', marginBottom: '20px', flexWrap: 'wrap' } },
+            el('div', { className: 'filter-wrapper', style: { flex: 1, minWidth: '180px', marginBottom: 0 } },
                 el('i', { className: 'fa-solid fa-hashtag' }),
                 el('input', { type: 'text', id: 'filterOp', className: 'filter-input', placeholder: 'Filtrar OPs (ex: 50, 52)', onkeyup: () => app.filtrarLista() })
             ),
-            el('div', { className: 'filter-wrapper', style: { flex: 2, marginBottom: 0 } },
+            el('div', { className: 'filter-wrapper', style: { flex: 1, minWidth: '180px', marginBottom: 0 } },
+                el('i', { className: 'fa-solid fa-list-ol' }),
+                el('input', { type: 'text', id: 'filterPos', className: 'filter-input', placeholder: 'Filtrar Posições (ex: 10, 20)', onkeyup: () => app.filtrarLista() })
+            ),
+            el('div', { className: 'filter-wrapper', style: { flex: 2, minWidth: '240px', marginBottom: 0 } },
                 el('i', { className: 'fa-solid fa-search' }),
-                el('input', { type: 'text', id: 'filterText', className: 'filter-input', placeholder: 'Pesquisar Item, Descrição ou Lote...', onkeyup: () => app.filtrarLista() })
+                el('input', { type: 'text', id: 'filterText', className: 'filter-input', placeholder: 'Pesquisar Item, Descrição, Lote ou Operação...', onkeyup: () => app.filtrarLista() })
             ),
             el('button', { className: 'btn btn-primary', style: { padding: '0 20px', display: 'flex', alignItems: 'center', gap: '8px' }, onclick: () => app.iniciarSelecionadas() },
                 el('i', { className: 'fa-solid fa-play' }), 'Iniciar Selecionadas'

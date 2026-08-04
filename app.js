@@ -102,14 +102,16 @@ export const app = {
         });
     },
 
-    renderLista: function (filtroOp = '', filtroText = '') {
+    renderLista: function (filtroOp = '', filtroPos = '', filtroText = '') {
         const tbody = document.getElementById('listaTbody');
         tbody.innerHTML = '';
 
         const fOp = filtroOp.trim();
+        const fPos = filtroPos.trim();
         const fText = filtroText.toLowerCase().trim();
 
         const termosOp = fOp ? fOp.split(/[\s,]+/).filter(t => t.length > 0) : [];
+        const termosPos = fPos ? fPos.split(/[\s,]+/).filter(t => t.length > 0) : [];
 
         const fragment = document.createDocumentFragment();
 
@@ -123,11 +125,10 @@ export const app = {
                         if (!termosOp.includes(strBelnr)) return;
                     }
 
-                    // 2. Filtro de Texto (Item, Descrição, Ordem, Lote/DistNumber)
-                    if (fText) {
-                        const loteAux = `${op.DistNumber || ''} ${pos.DistNumber || ''}`;
-                        const searchableText = `${op.AUFTRAG} ${pos.ItemCode} ${pos.ItemName} ${loteAux}`.toLowerCase();
-                        if (!searchableText.includes(fText)) return;
+                    // 2. Filtro estrito por Posição (BELPOS_ID) (OR lógico: se digitar "10, 20", mostra posições 10 e 20)
+                    if (termosPos.length > 0) {
+                        const strBelpos = String(pos.BELPOS_ID);
+                        if (!termosPos.includes(strBelpos)) return;
                     }
 
                     // Ignorar posições que não possuem roteiro (WorkorderRouting)
@@ -140,6 +141,14 @@ export const app = {
                     }
 
                     pos.WorkorderRouting.forEach(rot => {
+                        // 3. Filtro de Texto (Item, Descrição, Ordem, Lote, Operação/Posto de Trabalho)
+                        if (fText) {
+                            const loteAux = `${op.DistNumber || ''} ${pos.DistNumber || ''}`;
+                            const rotAux = `${rot.AG_ID || ''} ${rot.BEZ || ''} ${rot.APLATZ_ID || ''} ${rot.POS_TEXT || ''}`;
+                            const searchableText = `${op.AUFTRAG || ''} ${pos.ItemCode || ''} ${pos.ItemName || ''} ${loteAux} ${rotAux}`.toLowerCase();
+                            if (!searchableText.includes(fText)) return;
+                        }
+
                         const planned = parseFloat(pos.PlannedQty) || 0;
                         const total = parseFloat(rot.TotalQuantity) || 0;
                         let perc = planned > 0 ? (total / planned) * 100 : 0;
@@ -241,8 +250,9 @@ export const app = {
 
     filtrarLista: function () {
         const valOp = document.getElementById('filterOp') ? document.getElementById('filterOp').value : '';
+        const valPos = document.getElementById('filterPos') ? document.getElementById('filterPos').value : '';
         const valText = document.getElementById('filterText') ? document.getElementById('filterText').value : '';
-        this.renderLista(valOp, valText);
+        this.renderLista(valOp, valPos, valText);
     },
 
     abrirApontamento: function (belnrId, belposId, posId) {
