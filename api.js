@@ -1,21 +1,3 @@
-export function cleanBeasMasks() {
-    try {
-        if (window.ux && typeof window.ux.unbusy === 'function') {
-            window.ux.unbusy();
-        }
-        if (window.Ext && window.Ext.getBody) {
-            window.Ext.getBody().unmask();
-        }
-        document.querySelectorAll('.x-mask, .x-mask-msg, .beas-mask, .loading-mask, [class*="mask"]').forEach(el => {
-            if (el && el.parentNode) {
-                try { el.parentNode.removeChild(el); } catch (e) {}
-            }
-        });
-    } catch (e) {
-        console.warn('cleanBeasMasks fallback error:', e);
-    }
-}
-
 export const api = {
     getOps: async () => {
         try {
@@ -65,8 +47,6 @@ export const api = {
 
     sendApontamento: async (payload) => {
         console.log('Enviando Payload Final para o BEAS:', payload);
-        // Exemplo:
-        // await fetch('http://192.168.30.14:9908/api/v1/Apontamento', { method: 'POST', body: JSON.stringify(payload) })
         return true;
     },
 
@@ -75,7 +55,6 @@ export const api = {
             const response = await fetch('http://192.168.30.14:9908/api/v1/getStopReasons');
             if (!response.ok) throw new Error('Erro ao buscar motivos de parada');
             const data = await response.json();
-            // A API pode retornar um array direto ou um objeto { value: [...] }
             return Array.isArray(data) ? data : (data.value || []);
         } catch (error) {
             console.error('Falha de Comunicação ao buscar getStopReasons:', error);
@@ -105,21 +84,20 @@ export const api = {
     },
 
     serviceLayerPost(endpoint, payload, callback) {
+        if (window.ui && typeof window.ui.mbox === 'function') {
+            window.ui._origMbox = window.ui._origMbox || window.ui.mbox;
+            window.ui.mbox = function () {};
+        }
+
         if (window.ux && typeof window.ux.saveAll === 'function') {
             window.ux.saveAll(endpoint, payload, function (err, result) {
-                cleanBeasMasks();
-                let isError = !!err;
-                if (!isError && result) {
-                    try {
-                        const resObj = typeof result === 'string' ? JSON.parse(result) : result;
-                        if (resObj && resObj.error) isError = true;
-                    } catch(e) {}
-                }
-                
-                if (isError) {
-                    if (callback) callback(err || new Error('Erro na Service Layer'), result);
+                const mbox = document.getElementById('ui_mbox');
+                if (mbox) mbox.classList.remove('is-active');
+
+                if (window.ux && window.ux.aError && window.ux.aError(result)) {
+                    if (callback) callback(new Error('Erro na Service Layer'), result);
                 } else {
-                    if (callback) callback(null, result);
+                    if (callback) callback(err, result);
                 }
             }, {
                 method: 'POST',
@@ -133,24 +111,22 @@ export const api = {
     },
 
     serviceLayerPut(endpoint, payload, callback) {
+        if (window.ui && typeof window.ui.mbox === 'function') {
+            window.ui._origMbox = window.ui._origMbox || window.ui.mbox;
+            window.ui.mbox = function () {};
+        }
+
         if (window.ux && typeof window.ux.saveAll === 'function') {
             window.ux.saveAll(endpoint, payload, function (err, result) {
-                cleanBeasMasks();
-                let isError = !!err;
-                if (!isError && result) {
-                    try {
-                        const resObj = typeof result === 'string' ? JSON.parse(result) : result;
-                        if (resObj && resObj.error) isError = true;
-                    } catch(e) {}
-                }
-                
-                if (isError) {
-                    if (callback) callback(err || new Error('Erro na Service Layer'), result);
+                const mbox = document.getElementById('ui_mbox');
+                if (mbox) mbox.classList.remove('is-active');
+
+                if (window.ux && window.ux.aError && window.ux.aError(result)) {
+                    if (callback) callback(new Error('Erro na Service Layer'), result);
                 } else {
-                    if (callback) callback(null, result);
+                    if (callback) callback(err, result);
                 }
             }, {
-                type: 'PUT',
                 method: 'PUT',
                 contentType: 'json',
                 timeout: 180000

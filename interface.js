@@ -129,10 +129,10 @@ export function buildUI() {
     const mainContainer = el('div', { className: 'main-container' }, tabsContainer, contentBox);
 
     // --- Modal Colaborador ---
-    const modalColaborador = el('div', { className: 'modal', id: 'modalColaborador' },
-        el('div', { className: 'modal-content', style: { maxWidth: '450px', display: 'flex', flexDirection: 'column' } },
+    const modalColaborador = el('div', { className: 'custom-modal', id: 'modalColaborador' },
+        el('div', { className: 'custom-modal-content', style: { maxWidth: '450px', display: 'flex', flexDirection: 'column' } },
             el('h3', null, 'Adicionar Registro'),
-            el('p', { className: 'modal-desc' }, 'Informe o colaborador e selecione a operação.'),
+            el('p', { className: 'custom-modal-desc' }, 'Informe o colaborador e selecione a operação.'),
             el('div', { className: 'form-group' },
                 el('label', { style: { display: 'block', marginBottom: '5px', fontWeight: '500', color: '#475569', fontSize: '0.9rem' } }, 'Colaborador'),
                 el('input', { type: 'text', id: 'inputPersId', list: 'persList', className: 'form-control', placeholder: 'Ex: 9999 ou digite o nome...', autocomplete: 'off' }),
@@ -149,8 +149,8 @@ export function buildUI() {
         )
     );
 
-    const modalOpsSelecionadas = el('div', { className: 'modal', id: 'modalOpsSelecionadas', onclick: (e) => { if (e.target.id === 'modalOpsSelecionadas') document.getElementById('modalOpsSelecionadas').classList.remove('active') } },
-        el('div', { className: 'modal-content', style: { maxWidth: '600px', display: 'flex', flexDirection: 'column' } },
+    const modalOpsSelecionadas = el('div', { className: 'custom-modal', id: 'modalOpsSelecionadas', onclick: (e) => { if (e.target.id === 'modalOpsSelecionadas') document.getElementById('modalOpsSelecionadas').classList.remove('active') } },
+        el('div', { className: 'custom-modal-content', style: { maxWidth: '600px', display: 'flex', flexDirection: 'column' } },
             el('h3', { style: { flexShrink: 0 } }, 'Operações Selecionadas'),
             el('div', { id: 'listaOpsSelecionadasModal', style: { flexGrow: 1, maxHeight: '400px', overflowY: 'auto', marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '8px' } }),
             el('div', { className: 'btn-group', style: { marginTop: 'auto', paddingTop: '20px', flexShrink: 0 } },

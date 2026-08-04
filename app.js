@@ -875,25 +875,7 @@ export const app = {
         api.serviceLayerPost('/odata4/v1/TimeReceipt', payload, (sErr, result) => {
             if (sErr) {
                 console.error('Erro no apontamento Service Layer (Tempo/Produção):', sErr, result);
-                let errorMsg = 'Erro ao gravar apontamento. Verifique o console.';
-                if (result) {
-                    try {
-                        const resObj = typeof result === 'string' ? JSON.parse(result) : result;
-                        if (resObj && resObj.error && resObj.error.message && resObj.error.message.value) {
-                            errorMsg = resObj.error.message.value;
-                        } else if (resObj && resObj.error && resObj.error.message && typeof resObj.error.message === 'string') {
-                            errorMsg = resObj.error.message;
-                        } else if (resObj && resObj.error && typeof resObj.error === 'string') {
-                            errorMsg = resObj.error;
-                        } else if (typeof resObj === 'string') {
-                            errorMsg = resObj;
-                        }
-                    } catch (e) {
-                        if (typeof result === 'string' && result.trim().length > 0) {
-                            errorMsg = result;
-                        }
-                    }
-                }
+                const errorMsg = app.extractErrorMessage(sErr, result, 'Erro ao gravar apontamento. Verifique o console.');
                 app.showToast(errorMsg, 'error');
             } else {
                 reg.status = 'Finalizado';
@@ -978,19 +960,7 @@ export const app = {
             api.serviceLayerPost('/odata4/v1/TimeReceiptRunning', payload, (sErr, result) => {
                 if (sErr) {
                     console.error('Erro ao iniciar TimeReceiptRunning:', sErr, result);
-                    let errorMsg = 'Erro ao iniciar apontamento na Service Layer.';
-                    if (result) {
-                        try {
-                            const resObj = typeof result === 'string' ? JSON.parse(result) : result;
-                            if (resObj && resObj.error && resObj.error.message && resObj.error.message.value) {
-                                errorMsg = resObj.error.message.value;
-                            } else if (resObj && resObj.error && resObj.error.message && typeof resObj.error.message === 'string') {
-                                errorMsg = resObj.error.message;
-                            } else if (resObj && resObj.error && typeof resObj.error === 'string') {
-                                errorMsg = resObj.error;
-                            }
-                        } catch (e) {}
-                    }
+                    const errorMsg = app.extractErrorMessage(sErr, result, 'Erro ao iniciar apontamento na Service Layer.');
                     app.showToast(errorMsg, 'error');
                     resolve(false);
                 } else {
@@ -1038,19 +1008,7 @@ export const app = {
             api.serviceLayerPost('/odata4/v1/TimeReceipt', payload, (sErr, result) => {
                 if (sErr) {
                     console.error('Erro ao parar TimeReceipt:', sErr, result);
-                    let errorMsg = 'Erro ao parar apontamento na Service Layer.';
-                    if (result) {
-                        try {
-                            const resObj = typeof result === 'string' ? JSON.parse(result) : result;
-                            if (resObj && resObj.error && resObj.error.message && resObj.error.message.value) {
-                                errorMsg = resObj.error.message.value;
-                            } else if (resObj && resObj.error && resObj.error.message && typeof resObj.error.message === 'string') {
-                                errorMsg = resObj.error.message;
-                            } else if (resObj && resObj.error && typeof resObj.error === 'string') {
-                                errorMsg = resObj.error;
-                            }
-                        } catch (e) {}
-                    }
+                    const errorMsg = app.extractErrorMessage(sErr, result, 'Erro ao parar apontamento na Service Layer.');
                     app.showToast(errorMsg, 'error');
                     resolve(false);
                 } else {
@@ -1113,39 +1071,54 @@ export const app = {
         }
     },
 
-    showToast: function (msg, type = 'success') {
-        let container = document.getElementById('toast-container');
-        if (!container) {
-            container = document.createElement('div');
-            container.id = 'toast-container';
-            document.body.appendChild(container);
+    extractErrorMessage: function (sErr, result, defaultMsg = 'Erro na Service Layer.') {
+        if (result) {
+            try {
+                const resObj = typeof result === 'string' ? JSON.parse(result) : result;
+                if (resObj) {
+                    if (resObj.error) {
+                        if (resObj.error.message) {
+                            if (typeof resObj.error.message.value === 'string') return resObj.error.message.value;
+                            if (typeof resObj.error.message === 'string') return resObj.error.message;
+                        }
+                        if (typeof resObj.error === 'string') return resObj.error;
+                    }
+                    if (resObj.message && typeof resObj.message === 'string') return resObj.message;
+                    if (resObj.details && typeof resObj.details === 'string') return resObj.details;
+                }
+            } catch (e) {
+                if (typeof result === 'string' && result.trim().length > 0) {
+                    return result;
+                }
+            }
+        }
+        if (sErr) {
+            if (sErr.message) return sErr.message;
+            if (typeof sErr === 'string') return sErr;
+        }
+        return defaultMsg;
+    },
+
+    showToast: function (msg, type = 'info') {
+        let toast = document.getElementById('toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'toast';
+            toast.className = 'toast';
+            document.body.appendChild(toast);
         }
 
-        const toast = document.createElement('div');
-        toast.className = `toast-msg ${type}`;
-        
-        let icon = 'fa-check';
-        if (type === 'error') icon = 'fa-triangle-exclamation';
-        else if (type === 'warning') icon = 'fa-circle-exclamation';
-        else if (type === 'info') icon = 'fa-circle-info';
+        toast.className = `toast toast-${type}`;
+        toast.textContent = msg;
+        toast.style.display = 'block';
 
-        toast.innerHTML = `
-            <i class="fa-solid ${icon}"></i>
-            <span>${msg}</span>
-            <button class="toast-close-btn" onclick="this.parentElement.remove()">&times;</button>
-        `;
-        container.appendChild(toast);
-
-        requestAnimationFrame(() => {
-            toast.classList.add('show');
-        });
-
-        setTimeout(() => {
-            if (toast && toast.parentElement) {
-                toast.classList.remove('show');
-                setTimeout(() => toast.remove(), 300);
+        if (this.toastTimeout) clearTimeout(this.toastTimeout);
+        this.toastTimeout = setTimeout(() => {
+            if (toast) {
+                toast.style.display = 'none';
+                toast.className = 'toast';
             }
-        }, 5000);
+        }, 4000);
     }
 };
 
