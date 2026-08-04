@@ -437,10 +437,10 @@ body {
 
 .custom-modal-content {
     background: var(--surface);
-    padding: 25px;
+    padding: 28px;
     border-radius: 16px;
-    width: 100%;
-    max-width: 450px;
+    width: 92%;
+    max-width: 650px;
     box-shadow: var(--shadow-lg);
     transform: scale(0.95);
     transition: transform 0.3s ease;
@@ -527,10 +527,11 @@ input[type=number]::-webkit-outer-spin-button {
 input[type=number] {
     -moz-appearance: textfield;
 }
-/* Estilos Premium para os Cards de Sele��o de Opera��o */
+
+/* Estilos Premium para os Cards de Seleção de Operação */
 .op-card {
     background: #ffffff;
-    border: 1px solid #e2e8f0;
+    border: 2px solid #e2e8f0;
     border-radius: 12px;
     padding: 12px;
     cursor: pointer;
@@ -541,20 +542,18 @@ input[type=number] {
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     min-height: 90px;
     position: relative;
-    overflow: hidden;
+    box-sizing: border-box;
 }
 
 .op-card:hover {
     border-color: #cbd5e1;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.08);
 }
 
 .op-card.selected {
-    border: 2px solid var(--primary);
-    background: #f0f7ff;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.15);
+    border-color: var(--primary) !important;
+    background: #f0f7ff !important;
+    box-shadow: 0 0 0 1px var(--primary), 0 4px 6px -1px rgba(37, 99, 235, 0.15) !important;
 }
 
 .op-card-header {
