@@ -605,20 +605,39 @@ export const app = {
         const cleanColabId = String(colabId).trim();
         const numColabId = parseInt(cleanColabId, 10);
 
-        let recursos = [];
+        // 1. Filtrar pelo colaborador
+        let recursosColab = [];
         if (cleanColabId) {
-            recursos = this.persResourcesCache.filter(r => {
+            recursosColab = this.persResourcesCache.filter(r => {
                 const rPers = String(r.PERS_ID || '').trim();
                 const rNum = parseInt(rPers, 10);
                 return rPers === cleanColabId || (!isNaN(numColabId) && !isNaN(rNum) && numColabId === rNum);
             });
         } else {
-            recursos = this.persResourcesCache;
+            recursosColab = this.persResourcesCache;
+        }
+
+        // 2. Operacao selecionada no modal (para cruzar com GRUPPE ou APLATZ_ID)
+        const selIndex = this.selectedOpModalIndex !== undefined ? this.selectedOpModalIndex : 0;
+        const sel = (this.selectedOperations && this.selectedOperations[selIndex]) ? this.selectedOperations[selIndex] : (this.selectedOperations ? this.selectedOperations[0] : null);
+        const opAplatz = sel && sel.rot ? String(sel.rot.APLATZ_ID || '').trim().toLowerCase() : '';
+
+        // 3. Filtrar recursos que pertencem ao grupo da rota (GRUPPE === opAplatz) ou sao o proprio recurso (APLATZ_ID === opAplatz)
+        let recursosFiltrados = recursosColab;
+        if (opAplatz) {
+            const matchOp = recursosColab.filter(r => {
+                const rAplatz = String(r.APLATZ_ID || '').trim().toLowerCase();
+                const rGruppe = String(r.GRUPPE || r.Gruppe || r.APLATZGRUPPE || r.RECURSO_GRUPO || '').trim().toLowerCase();
+                return rAplatz === opAplatz || (rGruppe && rGruppe === opAplatz);
+            });
+            if (matchOp.length > 0) {
+                recursosFiltrados = matchOp;
+            }
         }
 
         const distinct = [];
         const seen = new Set();
-        recursos.forEach(r => {
+        recursosFiltrados.forEach(r => {
             const id = String(r.APLATZ_ID || '').trim();
             const desc = String(r.BEZ || '').trim();
             if (id && !seen.has(id)) {
@@ -669,7 +688,7 @@ export const app = {
             noRes.className = 'autocomplete-item';
             noRes.style.color = '#94a3b8';
             noRes.style.cursor = 'default';
-            noRes.textContent = available.length === 0 ? 'Nenhum recurso vinculado ao colaborador' : 'Nenhum recurso encontrado';
+            noRes.textContent = available.length === 0 ? 'Nenhum recurso vinculado a esta operação' : 'Nenhum recurso encontrado';
             dropdown.appendChild(noRes);
             dropdown.classList.add('active');
             return;
@@ -809,6 +828,7 @@ export const app = {
                         if (i === index) c.classList.add('selected');
                         else c.classList.remove('selected');
                     });
+                    this.onColaboradorChanged();
                 };
 
                 container.appendChild(card);
