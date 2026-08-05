@@ -59,7 +59,7 @@ export function buildUI() {
             el('table', { className: 'data-table' },
                 el('thead', null,
                     el('tr', null,
-                        el('th', { style: { width: '40px', textAlign: 'center' } }, el('input', { type: 'checkbox', id: 'selectAllOps', onclick: 'app.toggleSelectAll(this)' })),
+                        el('th', { style: { width: '40px', textAlign: 'center' } }, el('input', { type: 'checkbox', id: 'selectAllOps', onclick: (e) => app.toggleSelectAll(e.target) })),
                         el('th', null, 'OP'),
                         el('th', null, 'Pos'),
                         el('th', null, 'Seq'),

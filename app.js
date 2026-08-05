@@ -68,7 +68,7 @@ export const app = {
                 if (!p) return;
                 const id = String(p.Code || p.PERS_ID || p.PersID || p.id || p.ID || '').trim();
                 const name = String(p.NAME || p.Name || p.Nome || p.Description || '').trim();
-                
+
                 const opt = document.createElement('option');
                 opt.value = name ? `${id} - ${name}` : id;
                 opt.textContent = name ? `${name} (${id})` : id;
@@ -212,7 +212,7 @@ export const app = {
                             <td>
                                 <div style="display: flex; align-items: center; gap: 6px;">
                                     <span class="text-bold" style="color: #475569;">${rot.AG_ID}</span>
-                                    ${rot.LastOperation === 'Y' ? `<i class="fa-solid fa-circle" style="color: #2563eb; font-size: 0.55rem;" title="Última Operação"></i>` : ''}
+                                    ${rot.LastOperation === 'Y' ? `<i class="fa-solid fa-circle" style="color: #2563eb; font-size: 0.60rem; cursor: help;" title="Essa operação irá gerar Consumo e Apontamento de material"></i>` : ''}
                                 </div>
                             </td>
                             <td>
@@ -248,6 +248,7 @@ export const app = {
         });
 
         tbody.appendChild(fragment);
+        this.updateSelectAllCheckbox();
     },
 
     toggleOpCheck: function (belnr, belpos, pos, isChecked) {
@@ -258,14 +259,37 @@ export const app = {
             this.checkedKeys.delete(key);
             this.selectedOperations = this.selectedOperations.filter(s => !(s.op.BELNR_ID == belnr && s.pos.BELPOS_ID == belpos && s.rot.POS_ID == pos));
         }
+        this.updateSelectAllCheckbox();
     },
 
     toggleSelectAll: function (el) {
-        const checkboxes = document.querySelectorAll('.op-checkbox');
+        const isChecked = el ? el.checked : false;
+        const checkboxes = document.querySelectorAll('#listaTbody .op-checkbox');
         checkboxes.forEach(cb => {
-            cb.checked = el.checked;
-            app.toggleOpCheck(cb.dataset.belnrid, cb.dataset.belposid, cb.dataset.posid, el.checked);
+            cb.checked = isChecked;
+            const belnr = cb.dataset.belnrid;
+            const belpos = cb.dataset.belposid;
+            const pos = cb.dataset.posid;
+            const key = `${belnr}_${belpos}_${pos}`;
+            if (isChecked) {
+                this.checkedKeys.add(key);
+            } else {
+                this.checkedKeys.delete(key);
+                this.selectedOperations = this.selectedOperations.filter(s => !(s.op.BELNR_ID == belnr && s.pos.BELPOS_ID == belpos && s.rot.POS_ID == pos));
+            }
         });
+    },
+
+    updateSelectAllCheckbox: function () {
+        const headerCb = document.getElementById('selectAllOps');
+        if (!headerCb) return;
+        const checkboxes = document.querySelectorAll('#listaTbody .op-checkbox');
+        if (checkboxes.length === 0) {
+            headerCb.checked = false;
+            return;
+        }
+        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+        headerCb.checked = allChecked;
     },
 
     iniciarSelecionadas: function () {
@@ -354,7 +378,7 @@ export const app = {
                         if (d.lastOperation === undefined) {
                             d.lastOperation = operacao.LastOperation || 'N';
                         }
-                        const alreadyAdded = this.apontamentosManuais.some(m => 
+                        const alreadyAdded = this.apontamentosManuais.some(m =>
                             (m.systemNumber && d.systemNumber && m.systemNumber == d.systemNumber) ||
                             (m.status === 'Iniciado' && d.status === 'Iniciado' && m.colaborador == d.colaborador && m.posId == d.posId)
                         );
@@ -948,7 +972,7 @@ export const app = {
                     <div style="display: flex; flex-direction: column; gap: 3px; padding: 4px 0;">
                         <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: var(--primary); font-size: 0.95rem; margin-bottom: 2px;">
                             <span>OP ${reg.belnrId} / ${reg.belposId} / ${reg.posText || reg.posId}</span>
-                            ${reg.lastOperation === 'Y' ? `<i class="fa-solid fa-circle" style="color: #2563eb; font-size: 0.55rem;" title="Última Operação"></i>` : ''}
+                            ${reg.lastOperation === 'Y' ? `<i class="fa-solid fa-circle" style="color: #2563eb; font-size: 0.6rem; cursor: help;" title="Essa operação irá gerar Consumo e Apontamento de material"></i>` : ''}
                         </div>
                         ${reg.lote ? `<div style="font-size: 0.75rem; font-weight: 600; color: #3b82f6;"> ${reg.lote}</div>` : ''}
                         <div style="font-size: 0.75rem; font-weight: 600; color: #475569;">${reg.itemCode}</div>
@@ -1020,8 +1044,8 @@ export const app = {
                     ${isDone
                     ? `<span class="badge badge-gray"><i class="fa-solid fa-check"></i> Salvo</span>`
                     : isIniciado
-                    ? `<span class="badge" style="background-color: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; padding: 5px 10px; font-size: 0.75rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-spinner fa-spin"></i> Em andamento</span>`
-                    : `<button id="btn_save_${index}" class="btn btn-success" onclick="app.finalizarRegistro(${index})" style="padding: 6px 12px; font-size: 0.8rem;"><i class="fa-solid fa-check"></i> Salvar</button>`
+                        ? `<span class="badge" style="background-color: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; padding: 5px 10px; font-size: 0.75rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-spinner fa-spin"></i> Em andamento</span>`
+                        : `<button id="btn_save_${index}" class="btn btn-success" onclick="app.finalizarRegistro(${index})" style="padding: 6px 12px; font-size: 0.8rem;"><i class="fa-solid fa-check"></i> Salvar</button>`
                 }
                 </td>
                 
@@ -1409,7 +1433,7 @@ export const app = {
                         } else if (resObj && resObj.value && typeof resObj.value === 'object' && resObj.value.SystemNumber !== undefined) {
                             systemNumber = resObj.value.SystemNumber;
                         }
-                    } catch (e) {}
+                    } catch (e) { }
 
                     reg.status = 'Iniciado';
                     if (systemNumber !== null) {
