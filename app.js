@@ -68,7 +68,7 @@ export const app = {
                 if (!p) return;
                 const id = String(p.Code || p.PERS_ID || p.PersID || p.id || p.ID || '').trim();
                 const name = String(p.NAME || p.Name || p.Nome || p.Description || '').trim();
-
+                
                 const opt = document.createElement('option');
                 opt.value = name ? `${id} - ${name}` : id;
                 opt.textContent = name ? `${name} (${id})` : id;
@@ -212,7 +212,7 @@ export const app = {
                             <td>
                                 <div style="display: flex; align-items: center; gap: 6px;">
                                     <span class="text-bold" style="color: #475569;">${rot.AG_ID}</span>
-                                    ${rot.LastOperation === 'Y' ? `<i class="fa-solid fa-circle" style="color: #2563eb; font-size: 0.60rem; cursor: help;" title="Essa operação irá gerar Consumo e Apontamento de material"></i>` : ''}
+                                    ${rot.LastOperation === 'Y' ? `<i class="fa-solid fa-circle" style="color: #2563eb; font-size: 0.8rem; cursor: help;" title="Essa operação irá gerar Consumo e Apontamento de material"></i>` : ''}
                                 </div>
                             </td>
                             <td>
@@ -363,6 +363,7 @@ export const app = {
                         totalProcesso: 0,
                         tempo: 0,
                         startDateTime: trr.StartDateTime || '',
+                        closeEntry: false,
                         status: 'Iniciado'
                     });
                 });
@@ -378,7 +379,7 @@ export const app = {
                         if (d.lastOperation === undefined) {
                             d.lastOperation = operacao.LastOperation || 'N';
                         }
-                        const alreadyAdded = this.apontamentosManuais.some(m =>
+                        const alreadyAdded = this.apontamentosManuais.some(m => 
                             (m.systemNumber && d.systemNumber && m.systemNumber == d.systemNumber) ||
                             (m.status === 'Iniciado' && d.status === 'Iniciado' && m.colaborador == d.colaborador && m.posId == d.posId)
                         );
@@ -417,6 +418,7 @@ export const app = {
                         pesoLiquido: tr.QuantityGoodRUoM || tr.Quantity || 0,
                         totalProcesso: tr.QuantityGoodRUoM || tr.Quantity || 0,
                         tempo: tr.Duration || 0,
+                        closeEntry: tr.CloseEntry === true || tr.CloseEntry === 'Y',
                         status: 'Finalizado'
                     });
                 });
@@ -943,6 +945,7 @@ export const app = {
             pesoLiquido: 0,
             totalProcesso: 0,
             tempo: 0,
+            closeEntry: false,
             status: 'Pendente' // Pendente, Iniciado, Pausado, Finalizado
         });
 
@@ -968,7 +971,7 @@ export const app = {
             const colabNome = reg.colaboradorNome || this.getColaboradorNome(reg.colaborador);
 
             tr.innerHTML = `
-                <td style="vertical-align: top;">
+                <td style="vertical-align: middle;">
                     <div style="display: flex; flex-direction: column; gap: 3px; padding: 4px 0;">
                         <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: var(--primary); font-size: 0.95rem; margin-bottom: 2px;">
                             <span>OP ${reg.belnrId} / ${reg.belposId} / ${reg.posText || reg.posId}</span>
@@ -980,15 +983,15 @@ export const app = {
                         <div style="font-size: 0.75rem; font-weight: 600; color: #475569;">${reg.operacaoNome}</div>
                     </div>
                 </td>
-                <td style="text-align: center; vertical-align: top;">
-                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 4px; padding-top: 4px;">
+                <td style="text-align: center; vertical-align: middle;">
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
                         <span class="badge badge-gray" style="font-weight: 700;">${reg.colaborador}</span>
                         ${colabNome ? `<div style="font-size: 0.75rem; color: #475569; font-weight: 600; text-align: center; max-width: 120px; line-height: 1.2; word-wrap: break-word;">${colabNome}</div>` : ''}
                         ${isIniciado && reg.startDateTime ? `<span style="font-size: 0.7rem; color: #0284c7; font-weight: 600; margin-top: 2px;"><i class="fa-regular fa-clock"></i> ${reg.startDateTime.includes(' ') ? reg.startDateTime.split(' ')[1] : reg.startDateTime}</span>` : ''}
                     </div>
                 </td>
-                <td style="text-align: center; vertical-align: top;">
-                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 4px; padding-top: 4px;">
+                <td style="text-align: center; vertical-align: middle;">
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
                         ${reg.recurso ? `
                             <span class="badge" style="background-color: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; font-weight: 700; font-size: 0.8rem; padding: 3px 8px; border-radius: 6px;">${reg.recurso}</span>
                             ${(reg.recursoNome && reg.recursoNome !== reg.recurso) ? `<div style="font-size: 0.72rem; color: #475569; font-weight: 600; text-align: center; max-width: 125px; line-height: 1.2; word-wrap: break-word;">${reg.recursoNome.includes(' - ') ? reg.recursoNome.split(' - ').slice(1).join(' - ') : reg.recursoNome}</div>` : ''}
@@ -996,66 +999,79 @@ export const app = {
                     </div>
                 </td>
                 
-                <td>
-                    <select class="form-control" style="width:130px; font-size: 0.8em;" onchange="app.atualizarCampo(${index}, 'observacao', this.value)" ${isDone ? 'disabled' : ''}>
+                <td style="text-align: center; vertical-align: middle;">
+                    <select class="form-control" style="width: 100%; max-width: 125px; font-size: 0.8em; margin: 0 auto; display: block;" onchange="app.atualizarCampo(${index}, 'observacao', this.value)" ${isDone ? 'disabled' : ''}>
                         <option value="" ${reg.observacao === '' ? 'selected' : ''}>-- Nenhum --</option>
                         ${this.stopReasonsCache.map(r => `<option value="${r.Info}" ${reg.observacao === r.Info ? 'selected' : ''}>${r.ID} - ${r.Info}</option>`).join('')}
                     </select>
                 </td>
                 
-                <td>
-                    <select class="form-control" style="width:100px; font-size: 0.8em;" onchange="app.atualizarCampo(${index}, 'tipoPeso', this.value)" ${isDone ? 'disabled' : ''}>
+                <td style="text-align: center; vertical-align: middle;">
+                    <select class="form-control" style="width: 100%; max-width: 100px; font-size: 0.8em; margin: 0 auto; display: block;" onchange="app.atualizarCampo(${index}, 'tipoPeso', this.value)" ${isDone ? 'disabled' : ''}>
                         <option value="Coleta" ${reg.tipoPeso === 'Coleta' ? 'selected' : ''}>Coleta</option>
                         <option value="Devolução" ${reg.tipoPeso === 'Devolução' ? 'selected' : ''}>Devolução</option>
                     </select>
                 </td>
                 
-                <td style="padding: 10px;">
-                    <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 220px; margin: 0 auto;">
-                        <div style="display: flex; gap: 8px;">
+                <td style="vertical-align: middle; padding: 10px 4px;">
+                    <div style="display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 190px; margin: 0 auto;">
+                        <div style="display: flex; gap: 6px;">
                             <div style="flex: 1;">
-                                <div style="font-size: 0.65em; color: #94a3b8; font-weight: bold; margin-bottom: 2px;">TARA</div>
-                                <input type="number" step="0.01" class="input-weigh" id="tara_${index}" value="${reg.tara}" oninput="app.calcLiquidoVisor(${index})" style="width: 100%; text-align: center; font-size: 0.9em; padding: 6px;" ${isDone ? 'disabled' : ''}>
+                                <div style="font-size: 0.65em; color: #94a3b8; font-weight: bold; margin-bottom: 2px; text-align: center;">TARA</div>
+                                <input type="number" step="0.01" class="input-weigh" id="tara_${index}" value="${reg.tara}" oninput="app.calcLiquidoVisor(${index})" style="width: 100%; text-align: center; font-size: 0.85em; padding: 5px;" ${isDone ? 'disabled' : ''}>
                             </div>
                             <div style="flex: 1;">
-                                <div style="font-size: 0.65em; color: #94a3b8; font-weight: bold; margin-bottom: 2px;">BRUTO</div>
-                                <input type="number" step="0.01" class="input-weigh" id="bruto_${index}" value="${reg.pesoBruto}" oninput="app.calcLiquidoVisor(${index})" style="width: 100%; text-align: center; font-size: 0.9em; padding: 6px;" ${isDone ? 'disabled' : ''}>
+                                <div style="font-size: 0.65em; color: #94a3b8; font-weight: bold; margin-bottom: 2px; text-align: center;">BRUTO</div>
+                                <input type="number" step="0.01" class="input-weigh" id="bruto_${index}" value="${reg.pesoBruto}" oninput="app.calcLiquidoVisor(${index})" style="width: 100%; text-align: center; font-size: 0.85em; padding: 5px;" ${isDone ? 'disabled' : ''}>
                             </div>
                         </div>
-                        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 12px; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 5px 10px; display: flex; justify-content: space-between; align-items: center;">
                             <span style="font-size: 0.7em; color: #94a3b8; font-weight: bold;">LÍQUIDO</span>
-                            <span id="liq_${index}" style="font-size: 1.1em; font-weight: bold; color: var(--primary);">${reg.pesoLiquido.toFixed(2)}</span>
-                            <button style="border:none; background:transparent; cursor:${isDone ? 'not-allowed' : 'pointer'}; opacity: ${isDone ? '0.5' : '1'};" onclick="app.lerBalanca(${index})" title="Registrar Pesagem" ${isDone ? 'disabled' : ''}>
-                                <i class="fa-solid fa-scale-balanced" style="color:#64748b; font-size:1.1em; transition: color 0.2s;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='#64748b'"></i>
+                            <span id="liq_${index}" style="font-size: 1.05em; font-weight: bold; color: var(--primary);">${reg.pesoLiquido.toFixed(2)}</span>
+                            <button style="border:none; background:transparent; cursor:${isDone ? 'not-allowed' : 'pointer'}; opacity: ${isDone ? '0.5' : '1'}; padding: 0;" onclick="app.lerBalanca(${index})" title="Registrar Pesagem" ${isDone ? 'disabled' : ''}>
+                                <i class="fa-solid fa-scale-balanced" style="color:#64748b; font-size:1.05em; transition: color 0.2s;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='#64748b'"></i>
                             </button>
                         </div>
                     </div>
                 </td>
                 
-                <td style="text-align: right;">
-                    <span class="badge badge-blue" style="font-size: 0.9em;">${reg.totalProcesso.toFixed(2)}</span>
+                <td style="text-align: center; vertical-align: middle;">
+                    <span class="badge badge-blue" style="font-size: 0.9em; font-weight: 700; padding: 6px 10px;">${reg.totalProcesso.toFixed(2)}</span>
                 </td>
                 
-                <td style="text-align: right; vertical-align: top;">
-                    <input type="number" step="1" class="input-weigh" id="tempo_${index}" value="${reg.tempo}" oninput="app.atualizarCampo(${index}, 'tempo', this.value); app.checkSavable(${index})" style="width:75px; text-align: center;" ${(isDone || isIniciado) ? 'disabled' : ''}>
+                <td style="text-align: center; vertical-align: middle;">
+                    <input type="number" step="1" class="input-weigh" id="tempo_${index}" value="${reg.tempo}" oninput="app.atualizarCampo(${index}, 'tempo', this.value); app.checkSavable(${index})" style="width: 70px; text-align: center; font-size: 0.9em; padding: 6px; margin: 0 auto; display: block;" ${(isDone || isIniciado) ? 'disabled' : ''}>
                 </td>
                 
-                <td style="text-align: center; vertical-align: top;">
-                    ${isDone
-                    ? `<span class="badge badge-gray"><i class="fa-solid fa-check"></i> Salvo</span>`
-                    : isIniciado
-                        ? `<span class="badge" style="background-color: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; padding: 5px 10px; font-size: 0.75rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-spinner fa-spin"></i> Em andamento</span>`
-                        : `<button id="btn_save_${index}" class="btn btn-success" onclick="app.finalizarRegistro(${index})" style="padding: 6px 12px; font-size: 0.8rem;"><i class="fa-solid fa-check"></i> Salvar</button>`
-                }
+                <td style="text-align: center; vertical-align: middle;">
+                    <div style="display: flex; justify-content: center; align-items: center;">
+                        ${isDone
+                        ? `<span style="font-size: 0.8rem; color: ${reg.closeEntry ? '#16a34a' : '#64748b'}; font-weight: 700;">${reg.closeEntry ? 'Sim' : 'Não'}</span>`
+                        : `<input type="checkbox" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary); margin: 0;" ${reg.closeEntry ? 'checked' : ''} onchange="app.atualizarCampo(${index}, 'closeEntry', this.checked)" title="Marque para fechar a posição da rota no Beas (Apontamento Completo)">`
+                    }
+                    </div>
                 </td>
                 
-                <td style="text-align: center; white-space: nowrap; vertical-align: top;">
+                <td style="text-align: center; vertical-align: middle;">
+                    <div style="display: flex; justify-content: center; align-items: center;">
+                        ${isDone
+                        ? `<span class="badge badge-gray"><i class="fa-solid fa-check"></i> Salvo</span>`
+                        : isIniciado
+                            ? `<span class="badge" style="background-color: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; padding: 5px 8px; font-size: 0.75rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;"><i class="fa-solid fa-spinner fa-spin"></i> Em andamento</span>`
+                            : `<button id="btn_save_${index}" class="btn btn-success" onclick="app.finalizarRegistro(${index})" style="padding: 6px 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 5px;"><i class="fa-solid fa-check"></i> Salvar</button>`
+                    }
+                    </div>
+                </td>
+                
+                <td style="text-align: center; white-space: nowrap; vertical-align: middle;">
                     <input type="hidden" id="systemNumber_${index}" value="${reg.systemNumber || ''}">
-                    ${!isDone ? `
-                        <button class="btn-action-icon btn-action-play" onclick="app.iniciarTempo(${index})" title="${isIniciado ? 'Em andamento' : 'Iniciar'}" ${isIniciado ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : ''}><i class="fa-solid fa-play"></i></button>
-                        <button class="btn-action-icon btn-action-stop" onclick="app.pararTempo(${index})" title="${!isIniciado ? 'Iniciar primeiro' : (parseFloat(reg.totalProcesso) <= 0 ? 'Preencha o TOTAL PROC. antes de Parar' : 'Parar')}" ${(!isIniciado || parseFloat(reg.totalProcesso) <= 0) ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : ''}><i class="fa-solid fa-stop"></i></button>
-                        <button class="btn-action-icon btn-action-delete" onclick="app.removerRegistro(${index})" title="Remover" ${isIniciado ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : ''}><i class="fa-solid fa-trash"></i></button>
-                    ` : ''}
+                    <div style="display: flex; justify-content: center; align-items: center; gap: 4px;">
+                        ${!isDone ? `
+                            <button class="btn-action-icon btn-action-play" onclick="app.iniciarTempo(${index})" title="${isIniciado ? 'Em andamento' : 'Iniciar'}" ${isIniciado ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : ''}><i class="fa-solid fa-play"></i></button>
+                            <button class="btn-action-icon btn-action-stop" onclick="app.pararTempo(${index})" title="${!isIniciado ? 'Iniciar primeiro' : (parseFloat(reg.totalProcesso) <= 0 ? 'Preencha o TOTAL PROC. antes de Parar' : 'Parar')}" ${(!isIniciado || parseFloat(reg.totalProcesso) <= 0) ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : ''}><i class="fa-solid fa-stop"></i></button>
+                            <button class="btn-action-icon btn-action-delete" onclick="app.removerRegistro(${index})" title="Remover" ${isIniciado ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : ''}><i class="fa-solid fa-trash"></i></button>
+                        ` : ''}
+                    </div>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -1216,7 +1232,7 @@ export const app = {
             "EndDate": endDate,
             "EndTime": endTime,
             "Duration": duration,
-            "CloseEntry": false,
+            "CloseEntry": reg.closeEntry === true,
             "ManualBooking": false,
             "Remarks": reg.observacao || (isRunning ? "Apontamento Start/Stop" : "")
         };
@@ -1336,6 +1352,9 @@ export const app = {
                 app.showToast(errorMsg, 'error');
             } else {
                 reg.status = 'Finalizado';
+                if (reg.closeEntry === true) {
+                    app.limparPendentesOpFechada(reg.belnrId, reg.belposId, reg.posId, reg);
+                }
                 app.saveDrafts();
 
                 let successMsg = 'Apontamento salvo com sucesso!';
@@ -1354,6 +1373,25 @@ export const app = {
                 app.renderApontamentos();
             }
         });
+    },
+
+    limparPendentesOpFechada: function (belnrId, belposId, posId, regSalvo) {
+        const antes = this.apontamentosManuais.length;
+        this.apontamentosManuais = this.apontamentosManuais.filter(r => {
+            if (r === regSalvo) return true;
+            const isMesmaOp = (r.belnrId == belnrId && r.belposId == belposId && r.posId == posId);
+            return !(isMesmaOp && r.status !== 'Finalizado');
+        });
+        const removidos = antes - this.apontamentosManuais.length;
+
+        // Limpa chave específica de rascunhos no localStorage para esta operação finalizada
+        const draftKey = `sancay_drafts_${belnrId}_${belposId}_${posId}`;
+        localStorage.removeItem(draftKey);
+
+        if (removidos > 0) {
+            console.log(`[Beas CloseEntry] Removidos ${removidos} registro(s) pendente(s) da operação ${belnrId}/${belposId}/${posId}`);
+            this.showToast(`Apontamento Completo gravado: ${removidos} outro(s) registro(s) pendente(s) desta OP foram removidos.`, 'info');
+        }
     },
 
     saveDrafts: function () {
@@ -1433,7 +1471,7 @@ export const app = {
                         } else if (resObj && resObj.value && typeof resObj.value === 'object' && resObj.value.SystemNumber !== undefined) {
                             systemNumber = resObj.value.SystemNumber;
                         }
-                    } catch (e) { }
+                    } catch (e) {}
 
                     reg.status = 'Iniciado';
                     if (systemNumber !== null) {
@@ -1474,6 +1512,9 @@ export const app = {
                     resolve(false);
                 } else {
                     reg.status = 'Finalizado';
+                    if (reg.closeEntry === true) {
+                        app.limparPendentesOpFechada(reg.belnrId, reg.belposId, reg.posId, reg);
+                    }
                     app.saveDrafts();
                     app.renderApontamentos();
                     app.showToast('Apontamento parado e finalizado com sucesso!', 'success');

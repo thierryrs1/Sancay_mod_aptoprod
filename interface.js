@@ -109,16 +109,17 @@ export function buildUI() {
             el('table', { className: 'data-table', style: { width: '100%' } },
                 el('thead', null,
                     el('tr', null,
-                        el('th', { style: { width: '250px' } }, 'OP / OPERAÇÃO'),
-                        el('th', { style: { width: '110px', textAlign: 'center' } }, 'COLABORADOR'),
-                        el('th', { style: { width: '130px', textAlign: 'center' } }, 'RECURSO'),
-                        el('th', { style: { width: '120px' } }, 'OBSERVAÇÃO'),
-                        el('th', { style: { width: '100px' } }, 'TIPO PESO'),
-                        el('th', { style: { textAlign: 'center', width: '200px' } }, 'PESAGEM'),
-                        el('th', { style: { textAlign: 'right', width: '90px' } }, 'TOTAL PROC.'),
-                        el('th', { style: { textAlign: 'right', width: '80px' } }, 'TEMPO'),
-                        el('th', { style: { textAlign: 'center', width: '90px' } }, 'REGISTRO'),
-                        el('th', { style: { textAlign: 'center', width: '100px' } }, 'AÇÕES')
+                        el('th', { style: { width: '230px', textAlign: 'left' } }, 'OP / OPERAÇÃO'),
+                        el('th', { style: { width: '120px', textAlign: 'center' } }, 'COLABORADOR'),
+                        el('th', { style: { width: '120px', textAlign: 'center' } }, 'RECURSO'),
+                        el('th', { style: { width: '135px', textAlign: 'center' } }, 'OBSERVAÇÃO'),
+                        el('th', { style: { width: '110px', textAlign: 'center' } }, 'TIPO PESO'),
+                        el('th', { style: { width: '200px', textAlign: 'center' } }, 'PESAGEM'),
+                        el('th', { style: { width: '95px', textAlign: 'center' } }, 'TOTAL PROC.'),
+                        el('th', { style: { width: '85px', textAlign: 'center' } }, 'TEMPO'),
+                        el('th', { style: { width: '90px', textAlign: 'center' } }, 'APTO COMPLETO'),
+                        el('th', { style: { width: '95px', textAlign: 'center' } }, 'REGISTRO'),
+                        el('th', { style: { width: '110px', textAlign: 'center' } }, 'AÇÕES')
                     )
                 ),
                 el('tbody', { id: 'apontamentosTbody' })
