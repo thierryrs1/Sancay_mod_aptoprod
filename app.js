@@ -579,21 +579,12 @@ export const app = {
         });
     },
 
-    onColaboradorChanged: function () {
+    recursoDropdownIndex: -1,
+
+    getRecursosDisponiveis: function () {
+        if (!this.persResourcesCache || this.persResourcesCache.length === 0) return [];
         const inputEl = document.getElementById('inputPersId');
         const persInput = inputEl ? inputEl.value.trim() : '';
-        const selectRecurso = document.getElementById('selectRecurso');
-        if (!selectRecurso) return;
-
-        selectRecurso.innerHTML = '';
-
-        if (!persInput) {
-            const opt = document.createElement('option');
-            opt.value = '';
-            opt.textContent = 'Selecione um colaborador primeiro...';
-            selectRecurso.appendChild(opt);
-            return;
-        }
 
         let colabId = persInput;
         if (persInput.includes('-')) {
@@ -611,55 +602,179 @@ export const app = {
             }
         }
 
-        // Filtra recursos associados ao PERS_ID (comparando string e numero)
         const cleanColabId = String(colabId).trim();
         const numColabId = parseInt(cleanColabId, 10);
 
-        const recursos = (this.persResourcesCache || []).filter(r => {
-            const rPers = String(r.PERS_ID || '').trim();
-            const rNum = parseInt(rPers, 10);
-            return rPers === cleanColabId || (!isNaN(numColabId) && !isNaN(rNum) && numColabId === rNum);
+        let recursos = [];
+        if (cleanColabId) {
+            recursos = this.persResourcesCache.filter(r => {
+                const rPers = String(r.PERS_ID || '').trim();
+                const rNum = parseInt(rPers, 10);
+                return rPers === cleanColabId || (!isNaN(numColabId) && !isNaN(rNum) && numColabId === rNum);
+            });
+        } else {
+            recursos = this.persResourcesCache;
+        }
+
+        const distinct = [];
+        const seen = new Set();
+        recursos.forEach(r => {
+            const id = String(r.APLATZ_ID || '').trim();
+            const desc = String(r.BEZ || '').trim();
+            if (id && !seen.has(id)) {
+                seen.add(id);
+                distinct.push({ id, desc });
+            }
+        });
+        return distinct;
+    },
+
+    showRecursoDropdown: function () {
+        const input = document.getElementById('inputRecursoId');
+        const query = input ? input.value.trim().toLowerCase() : '';
+        this.renderRecursoDropdown(query);
+    },
+
+    hideRecursoDropdown: function () {
+        const dropdown = document.getElementById('recursoDropdown');
+        if (dropdown) dropdown.classList.remove('active');
+        this.recursoDropdownIndex = -1;
+    },
+
+    onRecursoInput: function (e) {
+        const query = e.target.value.trim().toLowerCase();
+        this.renderRecursoDropdown(query);
+    },
+
+    renderRecursoDropdown: function (query) {
+        const dropdown = document.getElementById('recursoDropdown');
+        if (!dropdown) return;
+
+        const available = this.getRecursosDisponiveis();
+
+        let filtered = available;
+        if (query) {
+            filtered = available.filter(r => {
+                const id = r.id.toLowerCase();
+                const desc = r.desc.toLowerCase();
+                return id.includes(query) || desc.includes(query);
+            });
+        }
+
+        dropdown.innerHTML = '';
+        this.recursoDropdownIndex = -1;
+
+        if (filtered.length === 0) {
+            const noRes = document.createElement('div');
+            noRes.className = 'autocomplete-item';
+            noRes.style.color = '#94a3b8';
+            noRes.style.cursor = 'default';
+            noRes.textContent = available.length === 0 ? 'Nenhum recurso vinculado ao colaborador' : 'Nenhum recurso encontrado';
+            dropdown.appendChild(noRes);
+            dropdown.classList.add('active');
+            return;
+        }
+
+        filtered.forEach((r, index) => {
+            const item = document.createElement('div');
+            item.className = 'autocomplete-item';
+            item.setAttribute('data-id', r.id);
+            item.setAttribute('data-name', r.desc);
+            item.setAttribute('data-index', index);
+            item.innerHTML = `<span class="badge-resource-id">${r.id}</span> <span>${r.desc}</span>`;
+
+            item.onmousedown = (ev) => {
+                ev.preventDefault();
+                this.selectRecursoItem(r.id, r.desc);
+            };
+
+            dropdown.appendChild(item);
         });
 
-        if (recursos.length === 0) {
-            const opt = document.createElement('option');
-            opt.value = '';
-            opt.textContent = 'Nenhum recurso vinculado';
-            selectRecurso.appendChild(opt);
-        } else {
-            const optDefault = document.createElement('option');
-            optDefault.value = '';
-            optDefault.textContent = '-- Selecione o Recurso --';
-            selectRecurso.appendChild(optDefault);
+        dropdown.classList.add('active');
+    },
 
-            const seen = new Set();
-            recursos.forEach(r => {
-                const id = String(r.APLATZ_ID || '').trim();
-                const desc = String(r.BEZ || '').trim();
-                if (id && !seen.has(id)) {
-                    seen.add(id);
-                    const opt = document.createElement('option');
-                    opt.value = id;
-                    opt.textContent = desc ? `${id} - ${desc}` : id;
-                    selectRecurso.appendChild(opt);
-                }
-            });
-
-            // Se tiver apenas 1 recurso, seleciona-o automaticamente
-            if (seen.size === 1) {
-                selectRecurso.selectedIndex = 1;
-            }
+    selectRecursoItem: function (id, desc) {
+        const input = document.getElementById('inputRecursoId');
+        if (input) {
+            input.value = desc ? `${id} - ${desc}` : id;
         }
+        this.hideRecursoDropdown();
+    },
+
+    onRecursoKeydown: function (e) {
+        const dropdown = document.getElementById('recursoDropdown');
+        if (!dropdown || !dropdown.classList.contains('active')) {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                this.showRecursoDropdown();
+            }
+            return;
+        }
+
+        const items = dropdown.querySelectorAll('.autocomplete-item:not([style*="cursor: default"])');
+        if (items.length === 0) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            this.recursoDropdownIndex = (this.recursoDropdownIndex + 1) % items.length;
+            this.highlightRecursoDropdownItem(items);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            this.recursoDropdownIndex = (this.recursoDropdownIndex - 1 + items.length) % items.length;
+            this.highlightRecursoDropdownItem(items);
+        } else if (e.key === 'Enter') {
+            if (this.recursoDropdownIndex >= 0 && this.recursoDropdownIndex < items.length) {
+                e.preventDefault();
+                const sel = items[this.recursoDropdownIndex];
+                const id = sel.getAttribute('data-id');
+                const desc = sel.getAttribute('data-name');
+                this.selectRecursoItem(id, desc);
+            }
+        } else if (e.key === 'Escape') {
+            this.hideRecursoDropdown();
+        }
+    },
+
+    highlightRecursoDropdownItem: function (items) {
+        items.forEach((it, i) => {
+            if (i === this.recursoDropdownIndex) {
+                it.classList.add('selected');
+                it.scrollIntoView({ block: 'nearest' });
+            } else {
+                it.classList.remove('selected');
+            }
+        });
+    },
+
+    onColaboradorChanged: function () {
+        const inputRecurso = document.getElementById('inputRecursoId');
+        if (!inputRecurso) return;
+
+        const available = this.getRecursosDisponiveis();
+
+        if (available.length === 1) {
+            const r = available[0];
+            inputRecurso.value = r.desc ? `${r.id} - ${r.desc}` : r.id;
+        } else if (available.length === 0) {
+            inputRecurso.value = '';
+            inputRecurso.placeholder = 'Nenhum recurso vinculado';
+        } else {
+            inputRecurso.value = '';
+            inputRecurso.placeholder = 'Digite o código ou nome do recurso...';
+        }
+        this.hideRecursoDropdown();
     },
 
     abrirModalColaborador: function () {
         document.getElementById('inputPersId').value = '';
         this.hidePersDropdown();
 
-        const selectRecurso = document.getElementById('selectRecurso');
-        if (selectRecurso) {
-            selectRecurso.innerHTML = '<option value="">Selecione um colaborador primeiro...</option>';
+        const inputRecurso = document.getElementById('inputRecursoId');
+        if (inputRecurso) {
+            inputRecurso.value = '';
+            inputRecurso.placeholder = 'Digite o código ou nome do recurso...';
         }
+        this.hideRecursoDropdown();
 
         if (!this.persResourcesCache || this.persResourcesCache.length === 0) {
             this.loadPersResources();
@@ -709,6 +824,7 @@ export const app = {
 
     fecharModalColaborador: function () {
         this.hidePersDropdown();
+        this.hideRecursoDropdown();
         document.getElementById('modalColaborador').classList.remove('active');
     },
 
@@ -749,9 +865,17 @@ export const app = {
             }
         }
 
-        const selectRecurso = document.getElementById('selectRecurso');
-        const recursoSelecionado = selectRecurso ? selectRecurso.value : '';
-        const recursoTexto = (selectRecurso && selectRecurso.selectedOptions && selectRecurso.selectedOptions[0]) ? selectRecurso.selectedOptions[0].textContent : '';
+        const inputRecurso = document.getElementById('inputRecursoId');
+        const recursoInput = inputRecurso ? inputRecurso.value.trim() : '';
+        let recursoSelecionado = recursoInput;
+        let recursoTexto = '';
+        if (recursoInput.includes('-')) {
+            const parts = recursoInput.split('-');
+            recursoSelecionado = parts[0].trim();
+            recursoTexto = parts.slice(1).join('-').trim();
+        } else if (recursoInput) {
+            recursoTexto = this.getRecursoNome(recursoSelecionado);
+        }
 
         this.apontamentosManuais.unshift({
             id: Date.now() + Math.random(),
@@ -1419,8 +1543,9 @@ window.app = app;
 
 document.addEventListener('click', (e) => {
     if (!e.target.closest('.autocomplete-wrapper')) {
-        if (window.app && typeof window.app.hidePersDropdown === 'function') {
-            window.app.hidePersDropdown();
+        if (window.app) {
+            if (typeof window.app.hidePersDropdown === 'function') window.app.hidePersDropdown();
+            if (typeof window.app.hideRecursoDropdown === 'function') window.app.hideRecursoDropdown();
         }
     }
 });

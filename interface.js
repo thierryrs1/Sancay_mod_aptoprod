@@ -153,8 +153,19 @@ export function buildUI() {
             ),
             el('div', { className: 'form-group' },
                 el('label', { style: { display: 'block', marginBottom: '5px', fontWeight: '500', color: '#475569', fontSize: '0.9rem' } }, 'Recurso'),
-                el('select', { id: 'selectRecurso', className: 'form-control' },
-                    el('option', { value: '' }, 'Selecione um colaborador...')
+                el('div', { className: 'autocomplete-wrapper' },
+                    el('input', { 
+                        type: 'text', 
+                        id: 'inputRecursoId', 
+                        className: 'form-control', 
+                        placeholder: 'Digite o código ou nome do recurso...', 
+                        autocomplete: 'off',
+                        oninput: (e) => app.onRecursoInput(e),
+                        onkeydown: (e) => app.onRecursoKeydown(e),
+                        onfocus: () => app.showRecursoDropdown(),
+                        onclick: () => app.showRecursoDropdown()
+                    }),
+                    el('div', { id: 'recursoDropdown', className: 'autocomplete-dropdown' })
                 )
             ),
             el('div', { className: 'form-group' },

@@ -559,6 +559,16 @@ body {
     letter-spacing: 0.02em;
 }
 
+.autocomplete-item .badge-resource-id {
+    font-weight: 700;
+    color: #6d28d9;
+    background: #ede9fe;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    letter-spacing: 0.02em;
+}
+
 .btn-group {
     display: flex;
     justify-content: flex-end;
