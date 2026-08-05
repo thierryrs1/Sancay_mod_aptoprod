@@ -14,6 +14,39 @@ export const app = {
     currentOperacao: null,
 
     init: async function () {
+        const uid = (typeof appInfo !== 'undefined' && appInfo?.uid) ? appInfo.uid : (typeof window !== 'undefined' && window.appInfo?.uid ? window.appInfo.uid : null);
+
+        // Validação de acesso ao portal via API getUserCode
+        const userCode = await api.getUserCode(uid);
+        if (!userCode) {
+            console.warn(`[Acesso Bloqueado] PERS_ID "${uid}" não possui autorização em getUserCode.`);
+            const container = document.getElementById('app-container') || document.body;
+            container.innerHTML = `
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 70vh; text-align: center; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                    <div style="background-color: #ffffff; border: 1px solid #fecaca; border-radius: 16px; padding: 40px 32px; max-width: 460px; box-shadow: 0 10px 25px -5px rgba(239, 68, 68, 0.1), 0 8px 10px -6px rgba(239, 68, 68, 0.1);">
+                        <div style="width: 64px; height: 64px; border-radius: 50%; background: #fee2e2; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+                            <i class="fa-solid fa-lock" style="font-size: 1.8rem; color: #dc2626;"></i>
+                        </div>
+                        <h2 style="color: #991b1b; margin-bottom: 12px; font-size: 1.35rem; font-weight: 700;">Acesso Bloqueado</h2>
+                        <p style="color: #64748b; font-size: 0.95rem; line-height: 1.5; margin-bottom: 0;">
+                            O colaborador <strong>${uid || 'Desconhecido'}</strong> não possui usuário SAP cadastrado. Acesso bloqueado.
+                        </p>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        if (typeof window !== 'undefined') {
+            window.appInfo = window.appInfo || {};
+            window.appInfo.sapUserCode = userCode;
+            window.appInfo.userCode = userCode;
+        }
+        if (typeof appInfo !== 'undefined') {
+            appInfo.sapUserCode = userCode;
+            appInfo.userCode = userCode;
+        }
+
         if (document.getElementById('filterOp')) document.getElementById('filterOp').value = '';
         if (document.getElementById('filterText')) document.getElementById('filterText').value = '';
 
@@ -52,8 +85,48 @@ export const app = {
 
     loadColaboradores: async function () {
         try {
-            const persData = await api.getColaboradores();
-            this.colaboradoresLista = Array.isArray(persData) ? persData : [];
+            const [persData, userCodes] = await Promise.all([
+                api.getColaboradores(),
+                api.getUserCodesList()
+            ]);
+
+            const beasArray = Array.isArray(persData) ? persData : [];
+            const userArray = Array.isArray(userCodes) ? userCodes : [];
+
+            // Filtra os usuários com USER_CODE válido (não nulo e não vazio)
+            const validSapUsers = userArray.filter(u =>
+                u && u.USER_CODE && typeof u.USER_CODE === 'string' && u.USER_CODE.trim() !== ''
+            );
+
+            this.colaboradoresLista = validSapUsers.map(u => {
+                const persId = String(u.PERS_ID || '').trim();
+                const numPersId = parseInt(persId, 10);
+                const userCode = String(u.USER_CODE || '').trim();
+
+                // Busca o nome correspondente no beasPers caso o JSON não traga DisplayName
+                const foundInBeas = beasArray.find(p => {
+                    if (!p) return false;
+                    const c = String(p.Code || p.PERS_ID || '').trim();
+                    const cNum = parseInt(c, 10);
+                    const n = String(p.Name || p.NAME || '').trim().toLowerCase();
+                    return c === persId ||
+                        (!isNaN(numPersId) && !isNaN(cNum) && numPersId === cNum) ||
+                        c.toLowerCase() === userCode.toLowerCase() ||
+                        n === userCode.toLowerCase();
+                });
+
+                const displayName = u.DisplayName || u.Name || u.NAME || (foundInBeas ? (foundInBeas.Name || foundInBeas.NAME) : '') || userCode;
+
+                return {
+                    Code: persId,
+                    PERS_ID: persId,
+                    Name: displayName,
+                    NAME: displayName,
+                    DisplayName: displayName,
+                    USER_CODE: userCode
+                };
+            });
+
             this.renderPersList();
         } catch (e) {
             console.error("Falha ao carregar lista de colaboradores.", e);
@@ -68,7 +141,7 @@ export const app = {
                 if (!p) return;
                 const id = String(p.Code || p.PERS_ID || p.PersID || p.id || p.ID || '').trim();
                 const name = String(p.NAME || p.Name || p.Nome || p.Description || '').trim();
-                
+
                 const opt = document.createElement('option');
                 opt.value = name ? `${id} - ${name}` : id;
                 opt.textContent = name ? `${name} (${id})` : id;
@@ -379,7 +452,7 @@ export const app = {
                         if (d.lastOperation === undefined) {
                             d.lastOperation = operacao.LastOperation || 'N';
                         }
-                        const alreadyAdded = this.apontamentosManuais.some(m => 
+                        const alreadyAdded = this.apontamentosManuais.some(m =>
                             (m.systemNumber && d.systemNumber && m.systemNumber == d.systemNumber) ||
                             (m.status === 'Iniciado' && d.status === 'Iniciado' && m.colaborador == d.colaborador && m.posId == d.posId)
                         );
@@ -427,10 +500,17 @@ export const app = {
 
         document.getElementById('tabBtn2').removeAttribute('disabled');
         this.switchTab(2);
+        this.renderHeaderInfo();
+        this.renderApontamentos();
+    },
+
+    renderHeaderInfo: function () {
+        const matOpNameEl = document.getElementById('matOpName');
+        if (!matOpNameEl) return;
 
         if (this.selectedOperations.length === 1) {
             const sel = this.selectedOperations[0];
-            document.getElementById('matOpName').innerHTML = `
+            matOpNameEl.innerHTML = `
                 <div style="display: flex; align-items: center; gap: 12px; margin-top: 6px; flex-wrap: wrap;">
                     <span style="font-size: 0.95rem; color: #475569;"><strong>OP:</strong> <span style="color: var(--primary); font-weight: bold; font-size: 1.05rem;">${sel.op.BELNR_ID}</span></span>
                     <span style="color: #cbd5e1;">|</span>
@@ -446,8 +526,8 @@ export const app = {
                     <span style="font-size: 0.9rem; color: #64748b;"><strong>Lote:</strong> ${sel.op.AUFTRAG}</span>
                 </div>
             `;
-        } else {
-            document.getElementById('matOpName').innerHTML = `
+        } else if (this.selectedOperations.length > 1) {
+            matOpNameEl.innerHTML = `
                 <div style="margin-top: 6px; font-size: 1.1rem; color: var(--primary); font-weight: bold; cursor: pointer; display: inline-block; padding: 4px; border-radius: 4px;" onclick="app.abrirListaOpsSelecionadas()" onmouseover="this.style.backgroundColor='#e0f2fe'" onmouseout="this.style.backgroundColor='transparent'" title="Clique para ver a lista de operações">
                     <i class="fa-solid fa-list-check" style="margin-right:5px;"></i> ${this.selectedOperations.length} Operações Selecionadas
                 </div>
@@ -455,9 +535,9 @@ export const app = {
                     Selecione a operação desejada ao adicionar um registro de tempo.
                 </div>
             `;
+        } else {
+            matOpNameEl.innerHTML = '';
         }
-
-        this.renderApontamentos();
     },
 
     abrirListaOpsSelecionadas: function () {
@@ -539,6 +619,7 @@ export const app = {
             item.setAttribute('data-id', id);
             item.setAttribute('data-name', name);
             item.setAttribute('data-index', index);
+
             item.innerHTML = `<span class="badge-pers-id">${id}</span> <span>${name}</span>`;
 
             item.onmousedown = (ev) => {
@@ -874,7 +955,7 @@ export const app = {
         document.getElementById('modalColaborador').classList.remove('active');
     },
 
-    confirmarColaborador: function () {
+    confirmarColaborador: async function () {
         const persInput = document.getElementById('inputPersId').value.trim();
         if (!persInput) {
             alert('Informe um colaborador.');
@@ -911,6 +992,13 @@ export const app = {
             }
         }
 
+        // Validação de Usuário SAP
+        const colabUserCode = await api.getUserCode(colabId);
+        if (!colabUserCode) {
+            alert(`O colaborador ${colabId} (${colabNome || 'Sem Nome'}) não possui usuário SAP cadastrado.\nNão é permitido adicionar apontamentos para este colaborador.`);
+            return;
+        }
+
         const inputRecurso = document.getElementById('inputRecursoId');
         const recursoInput = inputRecurso ? inputRecurso.value.trim() : '';
         let recursoSelecionado = recursoInput;
@@ -935,12 +1023,14 @@ export const app = {
             itemName: sel.pos.ItemName,
             colaborador: colabId,
             colaboradorNome: colabNome,
+            colaboradorUserCode: colabUserCode,
             recurso: recursoSelecionado,
             recursoNome: recursoTexto,
             operacaoNome: sel.rot.AG_ID,
             observacao: '', // Observação vazia por padrão
             tipoPeso: 'Coleta',
             tara: 0,
+            taraGravada: 0,
             pesoBruto: '',
             pesoLiquido: 0,
             totalProcesso: 0,
@@ -954,6 +1044,214 @@ export const app = {
         this.renderApontamentos();
     },
 
+    abrirModalPallet: function (index) {
+        this.selectedPalletIndex = index;
+        const reg = this.apontamentosManuais[index];
+        if (!reg) return;
+
+        const infoEl = document.getElementById('infoOpPalletModal');
+        if (infoEl) {
+            infoEl.innerHTML = `
+                <div><strong>OP:</strong> <span style="color: var(--primary); font-weight: bold;">${reg.belnrId}/${reg.belposId}/${reg.posText || reg.posId}</span> - ${reg.operacaoNome || ''}</div>
+                <div style="margin-top: 4px;"><strong>Item:</strong> ${reg.itemCode || ''} - ${reg.itemName || ''}</div>
+                <div style="margin-top: 4px;"><strong>Colaborador:</strong> ${reg.colaboradorNome || reg.colaborador} | <strong>Total:</strong> <span style="color: var(--primary); font-weight: bold;">${parseFloat(reg.totalProcesso || 0).toFixed(2)}</span></div>
+                ${reg.boxCode ? `<div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #cbd5e1;"><strong>Caixa Gerada (WMS):</strong> <span style="color: #6d28d9; font-weight: bold; background: #ede9fe; padding: 2px 6px; border-radius: 4px;"><i class="fa-solid fa-box"></i> ${reg.boxCode}</span></div>` : ''}
+            `;
+        }
+
+        const input = document.getElementById('inputPalletCode');
+        if (input) {
+            input.value = reg.palletCode || '';
+        }
+
+        const modal = document.getElementById('modalPallet');
+        if (modal) {
+            modal.classList.add('active');
+            setTimeout(() => {
+                if (input) {
+                    input.focus();
+                    input.select();
+                }
+            }, 100);
+        }
+    },
+
+    fecharModalPallet: function () {
+        const modal = document.getElementById('modalPallet');
+        if (modal) modal.classList.remove('active');
+    },
+
+    confirmarPallet: async function () {
+        if (this.selectedPalletIndex === undefined || this.selectedPalletIndex === null) {
+            this.fecharModalPallet();
+            return;
+        }
+
+        const reg = this.apontamentosManuais[this.selectedPalletIndex];
+        if (!reg) {
+            this.fecharModalPallet();
+            return;
+        }
+
+        const input = document.getElementById('inputPalletCode');
+        const scannedPallet = input ? input.value.trim() : '';
+
+        const btn = document.getElementById('btnConfirmarPallet');
+        const originalHtml = btn ? btn.innerHTML : '';
+
+        // Se o usuário limpou o campo, remove o vínculo de Pallet e Caixa
+        if (!scannedPallet) {
+            reg.palletCode = '';
+            reg.boxCode = '';
+            this.saveDrafts();
+            this.fecharModalPallet();
+            this.renderApontamentos();
+            this.showToast('Vínculo de Pallet e Caixa removido.', 'info');
+            return;
+        }
+
+        reg.palletCode = scannedPallet;
+
+        // Se a linha ainda não possui um código de caixa gerado pela API createWMSCode, chama a API
+        if (!reg.boxCode) {
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="margin-right: 6px;"></i> Gerando Caixa...';
+            }
+
+            try {
+                const res = await fetch('http://192.168.30.14:9908/api/v1/createWMSCode', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type: "CX", quantity: 1 })
+                });
+
+                if (!res.ok) {
+                    throw new Error(`Erro HTTP ${res.status}`);
+                }
+
+                const data = await res.json();
+                let code = '';
+                if (data.codes && Array.isArray(data.codes) && data.codes.length > 0) {
+                    code = data.codes[0];
+                } else if (data.code) {
+                    code = data.code;
+                }
+
+                if (code) {
+                    reg.boxCode = code;
+                }
+            } catch (err) {
+                console.error('Erro ao chamar API createWMSCode:', err);
+                this.showToast('Falha ao conectar com API WMS (192.168.30.14:9908).', 'error');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalHtml;
+                }
+                return;
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalHtml;
+                }
+            }
+        }
+
+        this.saveDrafts();
+        this.fecharModalPallet();
+        this.renderApontamentos();
+
+        if (reg.boxCode) {
+            this.showToast(`Caixa ${reg.boxCode} vinculada ao Pallet ${reg.palletCode}!`, 'success');
+        } else {
+            this.showToast(`Pallet ${reg.palletCode} registrado!`, 'success');
+        }
+    },
+
+    enviarUpdatePallet: async function (reg) {
+        if (!reg || !reg.palletCode) return;
+
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const createDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+        const createTime = (now.getHours() * 100) + now.getMinutes();
+
+        // Obtém o USER_CODE do colaborador da linha retornado pela API
+        const colabUserCode = reg.colaboradorUserCode || await api.getUserCode(reg.colaborador);
+        const currentUser = colabUserCode || ((typeof appInfo !== 'undefined' && appInfo?.sapUserCode)
+            ? appInfo.sapUserCode
+            : ((typeof window !== 'undefined' && window.appInfo?.sapUserCode)
+                ? window.appInfo.sapUserCode
+                : 'Support'));
+
+        const boxCode = String(reg.boxCode || '').trim();
+        const palletCode = String(reg.palletCode || '').trim();
+
+        const tareVal = (reg.taraGravada !== undefined && reg.taraGravada !== null && Number(reg.taraGravada) > 0)
+            ? parseFloat(reg.taraGravada)
+            : (parseFloat(reg.tara) || 0);
+
+        const line = {
+            "U_SPS_OPCode": "Ordem de Produção",
+            "U_SPS_BELNR_ID": parseInt(reg.belnrId, 10),
+            "U_SPS_BELPOS_ID": parseInt(reg.belposId, 10),
+            "U_SPS_ItemCode": String(reg.itemCode || ''),
+            "U_SPS_DistNumber": String(reg.lote || ''),
+            "U_SPS_BoxCode": boxCode,
+            "U_SPS_BoxQRCode": boxCode,
+            "U_SPS_BoxWeight": parseFloat(reg.totalProcesso || 0),
+            "U_SPS_Tare": tareVal,
+            "U_SPS_Status": "PESADO",
+            "U_SPS_Printed": "N",
+            "U_SPS_Estufa": String(reg.recurso || ''),
+            "U_SPS_CreateDate": createDate,
+            "U_SPS_CreateTime": createTime,
+            "U_SPS_CreateUser": currentUser
+        };
+
+        const payload = {
+            "U_SPS_Tipo": "PALLET",
+            "U_SPS_OPCode": "Ordem de Produção",
+            "U_SPS_BELNR_ID": parseInt(reg.belnrId, 10),
+            "U_SPS_BELPOS_ID": parseInt(reg.belposId, 10),
+            "U_SPS_PalletCode": palletCode,
+            "U_SPS_Status": "EM PROCESSO",
+            "U_SPS_Origem": "PRODUCTION",
+            "SPS_PALLET_GROUP_LCollection": [line]
+        };
+
+        try {
+            console.log('[updatePallet] Enviando payload:', payload);
+            const res = await fetch('http://192.168.30.14:9908/api/v1/updatePallet', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) {
+                const errText = await res.text();
+                throw new Error(`HTTP ${res.status}: ${errText}`);
+            }
+
+            const data = await res.json();
+            console.log('[updatePallet] Sucesso:', data);
+            app.showToast(`Pallet ${palletCode} atualizado com sucesso no WMS!`, 'success');
+        } catch (err) {
+            console.error('[updatePallet] Erro ao atualizar pallet:', err);
+            app.showToast(`Aviso: Erro ao sincronizar Pallet no WMS (${err.message})`, 'warning');
+        }
+    },
+
+    getLastOperationFromCache: function (belnrId, belposId, posId) {
+        if (!this.opsCache || !Array.isArray(this.opsCache)) return 'N';
+        const op = this.opsCache.find(o => String(o.BELNR_ID) === String(belnrId));
+        if (!op || !op.WorkorderPositions) return 'N';
+        const pos = op.WorkorderPositions.find(p => String(p.BELPOS_ID) === String(belposId));
+        if (!pos || !pos.WorkorderRouting) return 'N';
+        const rot = pos.WorkorderRouting.find(r => String(r.POS_ID) === String(posId));
+        return rot ? (rot.LastOperation || 'N') : 'N';
+    },
+
     renderApontamentos: function () {
         const tbody = document.getElementById('apontamentosTbody');
         tbody.innerHTML = '';
@@ -963,6 +1261,12 @@ export const app = {
         this.apontamentosManuais.forEach((reg, index) => {
             if (hideSaved && reg.status === 'Finalizado') return;
             displayedCount++;
+
+            if (!reg.lastOperation) {
+                reg.lastOperation = this.getLastOperationFromCache(reg.belnrId, reg.belposId, reg.posId);
+            }
+            const isLastOp = String(reg.lastOperation || '').trim().toUpperCase() === 'Y';
+            const showTagBtn = isLastOp;
 
             const tr = document.createElement('tr');
 
@@ -1046,30 +1350,42 @@ export const app = {
                 <td style="text-align: center; vertical-align: middle;">
                     <div style="display: flex; justify-content: center; align-items: center;">
                         ${isDone
-                        ? `<span style="font-size: 0.8rem; color: ${reg.closeEntry ? '#16a34a' : '#64748b'}; font-weight: 700;">${reg.closeEntry ? 'Sim' : 'Não'}</span>`
-                        : `<input type="checkbox" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary); margin: 0;" ${reg.closeEntry ? 'checked' : ''} onchange="app.atualizarCampo(${index}, 'closeEntry', this.checked)" title="Marque para fechar a posição da rota no Beas (Apontamento Completo)">`
-                    }
+                    ? `<span style="font-size: 0.8rem; color: ${reg.closeEntry ? '#16a34a' : '#64748b'}; font-weight: 700;">${reg.closeEntry ? 'Sim' : 'Não'}</span>`
+                    : `<input type="checkbox" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary); margin: 0;" ${reg.closeEntry ? 'checked' : ''} onchange="app.atualizarCampo(${index}, 'closeEntry', this.checked)" title="Marque para fechar a posição da rota no Beas (Apontamento Completo)">`
+                }
                     </div>
                 </td>
                 
                 <td style="text-align: center; vertical-align: middle;">
                     <div style="display: flex; justify-content: center; align-items: center;">
                         ${isDone
-                        ? `<span class="badge badge-gray"><i class="fa-solid fa-check"></i> Salvo</span>`
-                        : isIniciado
-                            ? `<span class="badge" style="background-color: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; padding: 5px 8px; font-size: 0.75rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;"><i class="fa-solid fa-spinner fa-spin"></i> Em andamento</span>`
-                            : `<button id="btn_save_${index}" class="btn btn-success" onclick="app.finalizarRegistro(${index})" style="padding: 6px 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 5px;"><i class="fa-solid fa-check"></i> Salvar</button>`
-                    }
+                    ? `<span class="badge badge-gray"><i class="fa-solid fa-check"></i> Salvo</span>`
+                    : isIniciado
+                        ? `<span class="badge" style="background-color: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; padding: 5px 8px; font-size: 0.75rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;"><i class="fa-solid fa-spinner fa-spin"></i> Em andamento</span>`
+                        : `<button id="btn_save_${index}" class="btn btn-success" onclick="app.finalizarRegistro(${index})" style="padding: 6px 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 5px;"><i class="fa-solid fa-check"></i> Salvar</button>`
+                }
                     </div>
                 </td>
                 
                 <td style="text-align: center; white-space: nowrap; vertical-align: middle;">
                     <input type="hidden" id="systemNumber_${index}" value="${reg.systemNumber || ''}">
-                    <div style="display: flex; justify-content: center; align-items: center; gap: 4px;">
-                        ${!isDone ? `
-                            <button class="btn-action-icon btn-action-play" onclick="app.iniciarTempo(${index})" title="${isIniciado ? 'Em andamento' : 'Iniciar'}" ${isIniciado ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : ''}><i class="fa-solid fa-play"></i></button>
-                            <button class="btn-action-icon btn-action-stop" onclick="app.pararTempo(${index})" title="${!isIniciado ? 'Iniciar primeiro' : (parseFloat(reg.totalProcesso) <= 0 ? 'Preencha o TOTAL PROC. antes de Parar' : 'Parar')}" ${(!isIniciado || parseFloat(reg.totalProcesso) <= 0) ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : ''}><i class="fa-solid fa-stop"></i></button>
-                            <button class="btn-action-icon btn-action-delete" onclick="app.removerRegistro(${index})" title="Remover" ${isIniciado ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : ''}><i class="fa-solid fa-trash"></i></button>
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;">
+                        <div style="display: flex; justify-content: center; align-items: center; gap: 4px;">
+                            ${!isDone ? `
+                                <button class="btn-action-icon btn-action-play" onclick="app.iniciarTempo(${index})" title="${isIniciado ? 'Em andamento' : 'Iniciar'}" ${isIniciado ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : ''}><i class="fa-solid fa-play"></i></button>
+                                <button class="btn-action-icon btn-action-stop" onclick="app.pararTempo(${index})" title="${!isIniciado ? 'Iniciar primeiro' : (parseFloat(reg.totalProcesso) <= 0 ? 'Preencha o TOTAL PROC. antes de Parar' : 'Parar')}" ${(!isIniciado || parseFloat(reg.totalProcesso) <= 0) ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : ''}><i class="fa-solid fa-stop"></i></button>
+                                <button class="btn-action-icon btn-action-delete" onclick="app.removerRegistro(${index})" title="Remover" ${isIniciado ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : ''}><i class="fa-solid fa-trash"></i></button>
+                                ${showTagBtn ? `
+                                    <button class="btn-action-icon btn-action-tag" onclick="app.abrirModalPallet(${index})" title="${reg.boxCode ? 'Caixa: ' + reg.boxCode + (reg.palletCode ? ' (Pallet: ' + reg.palletCode + ')' : '') : (reg.palletCode ? 'Pallet: ' + reg.palletCode : 'Vincular ao Pallet')}" style="${(reg.boxCode || reg.palletCode) ? 'background-color: #4f46e5 !important; box-shadow: 0 0 0 2px #c7d2fe;' : ''}"><i class="fa-solid fa-tags"></i></button>
+                                ` : ''}
+                            ` : (showTagBtn ? `
+                                <button class="btn-action-icon btn-action-tag" onclick="app.abrirModalPallet(${index})" title="${reg.boxCode ? 'Caixa: ' + reg.boxCode + (reg.palletCode ? ' (Pallet: ' + reg.palletCode + ')' : '') : (reg.palletCode ? 'Pallet: ' + reg.palletCode : 'Vincular ao Pallet')}" style="${(reg.boxCode || reg.palletCode) ? 'background-color: #4f46e5 !important; box-shadow: 0 0 0 2px #c7d2fe;' : ''}"><i class="fa-solid fa-tags"></i></button>
+                            ` : '')}
+                        </div>
+                        ${(showTagBtn && reg.boxCode) ? `
+                            <span class="badge" style="background-color: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; font-size: 0.75rem; padding: 3px 8px; border-radius: 4px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" onclick="app.abrirModalPallet(${index})" title="Caixa: ${reg.boxCode} (Pallet: ${reg.palletCode || '--'}) - Clique para alterar">
+                                <i class="fa-solid fa-box" style="font-size: 0.7rem;"></i> ${reg.boxCode}
+                            </span>
                         ` : ''}
                     </div>
                 </td>
@@ -1108,9 +1424,29 @@ export const app = {
         }
     },
 
+    isAptoCompleto: function (reg) {
+        return Boolean(reg && (reg.closeEntry === true || reg.closeEntry === 'true' || reg.closeEntry === 'Y' || reg.closeEntry === 1));
+    },
+
     atualizarCampo: function (index, campo, valor) {
         if (campo === 'tempo') valor = parseInt(valor) || 0;
-        this.apontamentosManuais[index][campo] = valor;
+        const reg = this.apontamentosManuais[index];
+        if (!reg) return;
+
+        reg[campo] = valor;
+
+        // Permite apenas uma linha com APTO COMPLETO para cada OP/Pos/PosId
+        if (campo === 'closeEntry' && (valor === true || valor === 'true')) {
+            this.apontamentosManuais.forEach((r, i) => {
+                if (i !== index && r.status !== 'Finalizado' && r.belnrId == reg.belnrId && r.belposId == reg.belposId && r.posId == reg.posId) {
+                    r.closeEntry = false;
+                }
+            });
+            this.saveDrafts();
+            this.renderApontamentos();
+            return;
+        }
+
         this.saveDrafts();
     },
 
@@ -1134,6 +1470,9 @@ export const app = {
 
         // Mantém as variáveis gravadas caso ocorra um re-render por timer
         reg.tara = tara;
+        if (tara > 0) {
+            reg.taraGravada = tara;
+        }
         reg.pesoBruto = bruto;
         reg.pesoLiquido = liq;
 
@@ -1166,13 +1505,16 @@ export const app = {
         const liq = bruto - tara;
         reg.pesoLiquido = liq;
 
+        // Salva oculto o peso da tara utilizada na pesagem
+        reg.taraGravada = tara;
+
         if (reg.tipoPeso === 'Coleta') {
             reg.totalProcesso += liq;
         } else {
             reg.totalProcesso -= liq;
         }
 
-        // Zera os campos após o registro conforme especificação
+        // Zera os campos visuais após o registro conforme especificação
         reg.tara = 0;
         reg.pesoBruto = '';
 
@@ -1219,7 +1561,7 @@ export const app = {
         if (duration <= 0) duration = 1;
 
         const totalProc = parseFloat(reg.totalProcesso) || 0;
-        const personnelId = (window.appInfo && window.appInfo.uid) ? String(window.appInfo.uid) : String(reg.colaborador || '');
+        const personnelId = String(reg.colaborador || (window.appInfo && window.appInfo.uid) || '');
 
         const payload = {
             "DocEntry": parseInt(reg.belnrId, 10),
@@ -1232,13 +1574,18 @@ export const app = {
             "EndDate": endDate,
             "EndTime": endTime,
             "Duration": duration,
-            "CloseEntry": reg.closeEntry === true,
+            "CloseEntry": this.isAptoCompleto(reg),
             "ManualBooking": false,
             "Remarks": reg.observacao || (isRunning ? "Apontamento Start/Stop" : "")
         };
 
         if (reg.recurso) {
             payload["ResourceId"] = String(reg.recurso);
+        }
+
+        const codeForUdf1 = reg.boxCode || (reg.palletCode && reg.palletCode.startsWith('CX-') ? reg.palletCode : '');
+        if (codeForUdf1) {
+            payload["UDF1"] = String(codeForUdf1);
         }
 
         if (isRunning) {
@@ -1330,6 +1677,16 @@ export const app = {
 
     finalizarRegistro: async function (index) {
         const reg = this.apontamentosManuais[index];
+        if (!reg) return;
+
+        // Validação estrita: colaborador precisa ter usuário SAP
+        const colabUserCode = reg.colaboradorUserCode || await api.getUserCode(reg.colaborador);
+        if (!colabUserCode) {
+            alert(`O colaborador ${reg.colaborador} (${reg.colaboradorNome || ''}) não possui usuário SAP cadastrado.\nNão é permitido enviar registro de tempo.`);
+            app.showToast(`Colaborador ${reg.colaborador} sem usuário SAP. Operação bloqueada.`, 'error');
+            return;
+        }
+        reg.colaboradorUserCode = colabUserCode;
 
         if (reg.pesoLiquido <= 0 && reg.totalProcesso <= 0) {
             alert('A quantidade deve ser maior que zero.');
@@ -1352,10 +1709,6 @@ export const app = {
                 app.showToast(errorMsg, 'error');
             } else {
                 reg.status = 'Finalizado';
-                if (reg.closeEntry === true) {
-                    app.limparPendentesOpFechada(reg.belnrId, reg.belposId, reg.posId, reg);
-                }
-                app.saveDrafts();
 
                 let successMsg = 'Apontamento salvo com sucesso!';
                 if (result) {
@@ -1370,7 +1723,16 @@ export const app = {
                 }
 
                 app.showToast(successMsg, 'success');
-                app.renderApontamentos();
+
+                // Envia sincronização com WMS caso haja pallet vinculado
+                app.enviarUpdatePallet(reg);
+
+                if (app.isAptoCompleto(reg)) {
+                    app.limparPendentesOpFechada(reg.belnrId, reg.belposId, reg.posId, reg);
+                } else {
+                    app.saveDrafts();
+                    app.renderApontamentos();
+                }
             }
         });
     },
@@ -1388,9 +1750,29 @@ export const app = {
         const draftKey = `sancay_drafts_${belnrId}_${belposId}_${posId}`;
         localStorage.removeItem(draftKey);
 
+        // Remove a operação das selecionadas e dos checkboxes marcados
+        const key = `${belnrId}_${belposId}_${posId}`;
+        this.checkedKeys.delete(key);
+        this.selectedOperations = this.selectedOperations.filter(s =>
+            !(s.op.BELNR_ID == belnrId && s.pos.BELPOS_ID == belposId && s.rot.POS_ID == posId)
+        );
+
         if (removidos > 0) {
-            console.log(`[Beas CloseEntry] Removidos ${removidos} registro(s) pendente(s) da operação ${belnrId}/${belposId}/${posId}`);
-            this.showToast(`Apontamento Completo gravado: ${removidos} outro(s) registro(s) pendente(s) desta OP foram removidos.`, 'info');
+            console.log(`[Beas CloseEntry] Removidos ${removidos} registro(s) pendente(s) da operação fechada ${belnrId}/${belposId}/${posId}`);
+        }
+
+        // Salva os rascunhos restantes
+        this.saveDrafts();
+
+        // Se for a única selecionada (ou se acabaram as selecionadas), volta para a aba 1 e recarrega a tabela
+        if (this.selectedOperations.length === 0) {
+            const tab2Btn = document.getElementById('tabBtn2');
+            if (tab2Btn) tab2Btn.setAttribute('disabled', 'true');
+            this.voltarParaLista();
+        } else {
+            // Se ainda restam outras operações selecionadas, atualiza cabeçalho e tabela
+            this.renderHeaderInfo();
+            this.renderApontamentos();
         }
     },
 
@@ -1442,7 +1824,16 @@ export const app = {
             return;
         }
 
-        const personnelId = (window.appInfo && window.appInfo.uid) ? String(window.appInfo.uid) : String(reg.colaborador);
+        // Validação estrita: colaborador precisa ter usuário SAP
+        const colabUserCode = reg.colaboradorUserCode || await api.getUserCode(reg.colaborador);
+        if (!colabUserCode) {
+            alert(`O colaborador ${reg.colaborador} (${reg.colaboradorNome || ''}) não possui usuário SAP cadastrado.\nNão é permitido iniciar registro de tempo.`);
+            app.showToast(`Colaborador ${reg.colaborador} sem usuário SAP. Operação bloqueada.`, 'error');
+            return false;
+        }
+        reg.colaboradorUserCode = colabUserCode;
+
+        const personnelId = String(reg.colaborador || (window.appInfo && window.appInfo.uid) || '');
 
         const payload = {
             "PersonnelId": personnelId,
@@ -1471,7 +1862,7 @@ export const app = {
                         } else if (resObj && resObj.value && typeof resObj.value === 'object' && resObj.value.SystemNumber !== undefined) {
                             systemNumber = resObj.value.SystemNumber;
                         }
-                    } catch (e) {}
+                    } catch (e) { }
 
                     reg.status = 'Iniciado';
                     if (systemNumber !== null) {
@@ -1495,6 +1886,15 @@ export const app = {
             return;
         }
 
+        // Validação estrita: colaborador precisa ter usuário SAP
+        const colabUserCode = reg.colaboradorUserCode || await api.getUserCode(reg.colaborador);
+        if (!colabUserCode) {
+            alert(`O colaborador ${reg.colaborador} (${reg.colaboradorNome || ''}) não possui usuário SAP cadastrado.\nNão é permitido finalizar registro de tempo.`);
+            app.showToast(`Colaborador ${reg.colaborador} sem usuário SAP. Operação bloqueada.`, 'error');
+            return false;
+        }
+        reg.colaboradorUserCode = colabUserCode;
+
         const totalProc = parseFloat(reg.totalProcesso) || 0;
         if (totalProc <= 0) {
             this.showToast('Não é possível parar: o campo TOTAL PROC. deve ser maior que zero.', 'warning');
@@ -1512,12 +1912,17 @@ export const app = {
                     resolve(false);
                 } else {
                     reg.status = 'Finalizado';
-                    if (reg.closeEntry === true) {
-                        app.limparPendentesOpFechada(reg.belnrId, reg.belposId, reg.posId, reg);
-                    }
-                    app.saveDrafts();
-                    app.renderApontamentos();
                     app.showToast('Apontamento parado e finalizado com sucesso!', 'success');
+
+                    // Envia sincronização com WMS caso haja pallet vinculado
+                    app.enviarUpdatePallet(reg);
+
+                    if (app.isAptoCompleto(reg)) {
+                        app.limparPendentesOpFechada(reg.belnrId, reg.belposId, reg.posId, reg);
+                    } else {
+                        app.saveDrafts();
+                        app.renderApontamentos();
+                    }
                     resolve(true);
                 }
             });
@@ -1549,12 +1954,12 @@ export const app = {
 
         const aptos = [];
         const semTotal = [];
-        this.apontamentosManuais.forEach((r, idx) => {
+        this.apontamentosManuais.forEach(r => {
             if (r.status === 'Iniciado') {
                 if (parseFloat(r.totalProcesso) > 0) {
-                    aptos.push(idx);
+                    aptos.push(r);
                 } else {
-                    semTotal.push(idx);
+                    semTotal.push(r);
                 }
             }
         });
@@ -1568,8 +1973,22 @@ export const app = {
             this.showToast(`${semTotal.length} registro(s) com TOTAL PROC. zerado não serão parados.`, 'warning');
         }
 
-        for (const idx of aptos) {
-            await this.pararTempo(idx);
+        // Processa primeiro os apontamentos parciais (não completos) e por último o apontamento completo
+        aptos.sort((a, b) => {
+            const aComp = app.isAptoCompleto(a) ? 1 : 0;
+            const bComp = app.isAptoCompleto(b) ? 1 : 0;
+            return aComp - bComp;
+        });
+
+        for (const reg of aptos) {
+            const currentIdx = this.apontamentosManuais.indexOf(reg);
+            if (currentIdx !== -1 && reg.status === 'Iniciado') {
+                const ok = await this.pararTempo(currentIdx);
+                if (!ok) {
+                    this.showToast('Parada em lote interrompida para evitar inconsistência.', 'error');
+                    break;
+                }
+            }
         }
     },
 

@@ -190,6 +190,44 @@ export function buildUI() {
         )
     );
 
+    // --- Modal Pallet ---
+    const modalPallet = el('div', { className: 'custom-modal', id: 'modalPallet', onclick: (e) => { if (e.target.id === 'modalPallet') app.fecharModalPallet() } },
+        el('div', { className: 'custom-modal-content', style: { maxWidth: '480px', width: '92%', display: 'flex', flexDirection: 'column' } },
+            el('div', { style: { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' } },
+                el('div', { style: { width: '40px', height: '40px', borderRadius: '8px', backgroundColor: '#e0e7ff', color: '#4f46e5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', flexShrink: 0 } },
+                    el('i', { className: 'fa-solid fa-tags' })
+                ),
+                el('div', null,
+                    el('h3', { style: { margin: 0, fontSize: '1.15rem', color: '#1e293b' } }, 'Vincular ao Pallet'),
+                    el('p', { className: 'custom-modal-desc', style: { margin: '2px 0 0 0', fontSize: '0.85rem' } }, 'Bipe o código do Pallet (PLP) para gerar e associar a Caixa')
+                )
+            ),
+            el('div', { id: 'infoOpPalletModal', style: { backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '10px 12px', margin: '10px 0 15px 0', fontSize: '0.85rem', color: '#475569', lineHeight: '1.4' } }),
+            el('div', { className: 'form-group' },
+                el('label', { style: { display: 'block', marginBottom: '6px', fontWeight: '600', color: '#334155', fontSize: '0.9rem' } }, 'Código do Pallet (PLP)'),
+                el('div', { style: { position: 'relative' } },
+                    el('input', { 
+                        type: 'text', 
+                        id: 'inputPalletCode', 
+                        className: 'form-control', 
+                        placeholder: 'Bipe o Pallet...', 
+                        autocomplete: 'off',
+                        style: { paddingLeft: '38px', fontSize: '1rem', fontWeight: '600', letterSpacing: '0.5px' },
+                        onkeydown: (e) => { if (e.key === 'Enter') app.confirmarPallet(); }
+                    }),
+                    el('i', { className: 'fa-solid fa-barcode', style: { position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '1.1rem' } })
+                )
+            ),
+            el('div', { className: 'btn-group', style: { marginTop: '20px', paddingTop: '10px' } },
+                el('button', { className: 'btn btn-outline', onclick: () => app.fecharModalPallet() }, 'Cancelar'),
+                el('button', { id: 'btnConfirmarPallet', className: 'btn btn-primary', style: { backgroundColor: '#4f46e5', borderColor: '#4f46e5', color: '#ffffff' }, onclick: () => app.confirmarPallet() }, 
+                    el('i', { className: 'fa-solid fa-check', style: { marginRight: '6px' } }),
+                    'Confirmar'
+                )
+            )
+        )
+    );
+
     // Ajusta o modalColaborador para fechar ao clicar fora
     modalColaborador.onclick = function (e) {
         if (e.target === modalColaborador) {
@@ -224,4 +262,5 @@ export function buildUI() {
     container.appendChild(mainContainer);
     container.appendChild(modalColaborador);
     container.appendChild(modalOpsSelecionadas);
+    container.appendChild(modalPallet);
 }

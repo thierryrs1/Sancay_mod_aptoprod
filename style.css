@@ -817,6 +817,13 @@ input[type=number] {
     background-color: #dc2626 !important;
 }
 
+.btn-action-tag {
+    background-color: #6366f1 !important;
+}
+.btn-action-tag:hover:not(:disabled) {
+    background-color: #4f46e5 !important;
+}
+
 /* Toast Notifications (Padrão mod_pallets) */
 .toast {
     display: none;

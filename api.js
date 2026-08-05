@@ -1,4 +1,61 @@
 export const api = {
+    usersCache: null,
+
+    getUserCodesList: async (persId) => {
+        try {
+            const uid = persId || ((typeof appInfo !== 'undefined' && appInfo?.uid) ? appInfo.uid : (typeof window !== 'undefined' && window.appInfo?.uid ? window.appInfo.uid : '9999'));
+
+            const response = await fetch('http://192.168.30.14:9908/api/v1/getUserCode', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ "PERS_ID": String(uid || '9999') })
+            });
+
+            if (!response.ok) return null;
+            const data = await response.json();
+
+            if (Array.isArray(data)) {
+                api.usersCache = data;
+                return data;
+            }
+            return null;
+        } catch (error) {
+            console.error('Falha de Comunicação ao verificar getUserCode:', error);
+            return null;
+        }
+    },
+
+    getUserCode: async (persId) => {
+        try {
+            const uid = persId || ((typeof appInfo !== 'undefined' && appInfo?.uid) ? appInfo.uid : (typeof window !== 'undefined' && window.appInfo?.uid ? window.appInfo.uid : null));
+            if (!uid) return null;
+
+            let list = api.usersCache;
+            if (!list) {
+                list = await api.getUserCodesList(uid);
+            }
+
+            if (Array.isArray(list)) {
+                const cleanUid = String(uid).trim();
+                const numUid = parseInt(cleanUid, 10);
+                const item = list.find(u => {
+                    if (!u || u.PERS_ID === undefined || u.PERS_ID === null) return false;
+                    const p = String(u.PERS_ID).trim();
+                    return p === cleanUid || (!isNaN(numUid) && parseInt(p, 10) === numUid);
+                });
+
+                if (item && item.USER_CODE && typeof item.USER_CODE === 'string' && item.USER_CODE.trim() !== '') {
+                    return item.USER_CODE.trim();
+                }
+                return null;
+            }
+            return null;
+        } catch (error) {
+            console.error('Falha de Comunicação ao verificar getUserCode:', error);
+            return null;
+        }
+    },
+
     getOps: async () => {
         try {
             const currentUid = (typeof appInfo !== 'undefined' && appInfo?.uid) ? appInfo.uid : (typeof window !== 'undefined' && window.appInfo?.uid ? window.appInfo.uid : null);
