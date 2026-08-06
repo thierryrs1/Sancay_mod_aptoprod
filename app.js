@@ -284,8 +284,8 @@ export const app = {
                             <td><div class="text-bold" style="color: var(--primary);">${rot.POS_TEXT || rot.POS_ID}</div></td>
                             <td>
                                 <div style="display: flex; align-items: center; gap: 6px;">
+                                    ${rot.LastOperation === 'Y' ? `<i class="fa-solid fa-circle" style="color: #2563eb; font-size: 0.75rem; cursor: help; flex-shrink: 0;" title="Essa operação irá gerar Consumo e Apontamento de material"></i>` : ''}
                                     <span class="text-bold" style="color: #475569;">${rot.AG_ID}</span>
-                                    ${rot.LastOperation === 'Y' ? `<i class="fa-solid fa-circle" style="color: #2563eb; font-size: 0.8rem; cursor: help;" title="Essa operação irá gerar Consumo e Apontamento de material"></i>` : ''}
                                 </div>
                             </td>
                             <td>
@@ -1049,6 +1049,11 @@ export const app = {
         const reg = this.apontamentosManuais[index];
         if (!reg) return;
 
+        if (reg.status === 'Finalizado') {
+            this.showToast('Este apontamento já foi finalizado e não pode ter o pallet alterado.', 'warning');
+            return;
+        }
+
         const infoEl = document.getElementById('infoOpPalletModal');
         if (infoEl) {
             infoEl.innerHTML = `
@@ -1081,6 +1086,99 @@ export const app = {
         if (modal) modal.classList.remove('active');
     },
 
+    gerarNovoPallet: async function () {
+        if (this.selectedPalletIndex === undefined || this.selectedPalletIndex === null) {
+            this.showToast('Nenhum registro selecionado.', 'warning');
+            return;
+        }
+
+        const reg = this.apontamentosManuais[this.selectedPalletIndex];
+        if (!reg) return;
+
+        if (reg.status === 'Finalizado') {
+            this.fecharModalPallet();
+            this.showToast('Este apontamento já foi finalizado e não pode ser alterado.', 'warning');
+            return;
+        }
+
+        const btn = document.getElementById('btnGerarPallet');
+        const input = document.getElementById('inputPalletCode');
+        const originalHtml = btn ? btn.innerHTML : '';
+
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="margin-right: 4px;"></i> Gerando...';
+        }
+
+        try {
+            // 1. Gera o código de Pallet via API createWMSCode
+            const code = await api.createWMSCode('PLP', 1);
+            if (!code) {
+                throw new Error('Código de pallet não retornado pela API createWMSCode');
+            }
+
+            // 2. Obtém os dados da posição da OP (WhsCode e BinAbs) e Usuário SAP
+            let whsCode = reg.whsCode || '01.PPR';
+            let binAbs = reg.binAbs !== undefined ? parseInt(reg.binAbs, 10) : 0;
+
+            if (this.opsCache && Array.isArray(this.opsCache)) {
+                const op = this.opsCache.find(o => String(o.BELNR_ID) === String(reg.belnrId));
+                if (op) {
+                    const positions = op.WorkorderPositions || op.WorkOrderPos || [];
+                    const pos = positions.find(p => String(p.BELPOS_ID) === String(reg.belposId));
+                    if (pos) {
+                        if (pos.WhsCode) whsCode = pos.WhsCode;
+                        if (pos.BinAbs !== undefined && pos.BinAbs !== null) binAbs = parseInt(pos.BinAbs, 10) || 0;
+                    }
+                }
+            }
+
+            let sapUser = reg.colaboradorUserCode;
+            if (!sapUser && reg.colaborador) {
+                sapUser = await api.getUserCode(reg.colaborador);
+            }
+            if (!sapUser) {
+                sapUser = (typeof appInfo !== 'undefined' && appInfo?.sapUserCode) ? appInfo.sapUserCode : 'Support';
+            }
+
+            // 3. Monta o payload e faz POST para createPallet
+            const palletPayload = {
+                "U_SPS_Tipo": "PALLET",
+                "U_SPS_OPCode": "Ordem de Produção",
+                "U_SPS_PalletCode": code,
+                "U_SPS_QRCode": code,
+                "U_SPS_ExpectedQty": 1,
+                "U_SPS_AbsEntry": binAbs,
+                "U_SPS_CreateUser": sapUser,
+                "U_SPS_Printed": "N",
+                "U_SPS_WhsCode": whsCode,
+                "U_SPS_Origem": "PRODUCTION",
+                "U_SPS_BELNR_ID": parseInt(reg.belnrId, 10),
+                "U_SPS_BELPOS_ID": parseInt(reg.belposId, 10),
+                "U_SPS_Status": "EM ESTOQUE"
+            };
+
+            await api.createPallet(palletPayload);
+
+            // 4. Preenche no input e atualiza foco
+            if (input) {
+                input.value = code;
+                input.focus();
+                input.select();
+            }
+
+            this.showToast(`Pallet ${code} gerado e registrado com sucesso!`, 'success');
+        } catch (err) {
+            console.error('Erro ao gerar/registrar Pallet:', err);
+            this.showToast(`Erro ao gerar Pallet: ${err.message || err}`, 'error');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        }
+    },
+
     confirmarPallet: async function () {
         if (this.selectedPalletIndex === undefined || this.selectedPalletIndex === null) {
             this.fecharModalPallet();
@@ -1090,6 +1188,12 @@ export const app = {
         const reg = this.apontamentosManuais[this.selectedPalletIndex];
         if (!reg) {
             this.fecharModalPallet();
+            return;
+        }
+
+        if (reg.status === 'Finalizado') {
+            this.fecharModalPallet();
+            this.showToast('Este apontamento já foi finalizado e não pode ser alterado.', 'warning');
             return;
         }
 
@@ -1201,7 +1305,7 @@ export const app = {
             "U_SPS_BoxQRCode": boxCode,
             "U_SPS_BoxWeight": parseFloat(reg.totalProcesso || 0),
             "U_SPS_Tare": tareVal,
-            "U_SPS_Status": "PESADO",
+            "U_SPS_Status": "EMPESAGEM",
             "U_SPS_Printed": "N",
             "U_SPS_Estufa": String(reg.recurso || ''),
             "U_SPS_CreateDate": createDate,
@@ -1379,11 +1483,11 @@ export const app = {
                                     <button class="btn-action-icon btn-action-tag" onclick="app.abrirModalPallet(${index})" title="${reg.boxCode ? 'Caixa: ' + reg.boxCode + (reg.palletCode ? ' (Pallet: ' + reg.palletCode + ')' : '') : (reg.palletCode ? 'Pallet: ' + reg.palletCode : 'Vincular ao Pallet')}" style="${(reg.boxCode || reg.palletCode) ? 'background-color: #4f46e5 !important; box-shadow: 0 0 0 2px #c7d2fe;' : ''}"><i class="fa-solid fa-tags"></i></button>
                                 ` : ''}
                             ` : (showTagBtn ? `
-                                <button class="btn-action-icon btn-action-tag" onclick="app.abrirModalPallet(${index})" title="${reg.boxCode ? 'Caixa: ' + reg.boxCode + (reg.palletCode ? ' (Pallet: ' + reg.palletCode + ')' : '') : (reg.palletCode ? 'Pallet: ' + reg.palletCode : 'Vincular ao Pallet')}" style="${(reg.boxCode || reg.palletCode) ? 'background-color: #4f46e5 !important; box-shadow: 0 0 0 2px #c7d2fe;' : ''}"><i class="fa-solid fa-tags"></i></button>
+                                <button class="btn-action-icon btn-action-tag" disabled style="opacity: 0.4; cursor: not-allowed; ${(reg.boxCode || reg.palletCode) ? 'background-color: #4f46e5 !important; box-shadow: 0 0 0 2px #c7d2fe;' : ''}" title="${reg.boxCode ? 'Caixa: ' + reg.boxCode + (reg.palletCode ? ' (Pallet: ' + reg.palletCode + ')' : '') : (reg.palletCode ? 'Pallet: ' + reg.palletCode : 'Vincular ao Pallet')} (Apontamento finalizado)"><i class="fa-solid fa-tags"></i></button>
                             ` : '')}
                         </div>
                         ${(showTagBtn && reg.boxCode) ? `
-                            <span class="badge" style="background-color: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; font-size: 0.75rem; padding: 3px 8px; border-radius: 4px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" onclick="app.abrirModalPallet(${index})" title="Caixa: ${reg.boxCode} (Pallet: ${reg.palletCode || '--'}) - Clique para alterar">
+                            <span class="badge" style="background-color: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; font-size: 0.75rem; padding: 3px 8px; border-radius: 4px; font-weight: 700; ${isDone ? 'cursor: default;' : 'cursor: pointer;'} display: inline-flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" ${isDone ? '' : `onclick="app.abrirModalPallet(${index})"`} title="Caixa: ${reg.boxCode} (Pallet: ${reg.palletCode || '--'})${isDone ? '' : ' - Clique para alterar'}">
                                 <i class="fa-solid fa-box" style="font-size: 0.7rem;"></i> ${reg.boxCode}
                             </span>
                         ` : ''}

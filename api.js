@@ -8,7 +8,7 @@ export const api = {
             const response = await fetch('http://192.168.30.14:9908/api/v1/getUserCode', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ "PERS_ID": String(uid || '9999') })
+                body: JSON.stringify({ "PERS_ID": String(uid) })
             });
 
             if (!response.ok) return null;
@@ -22,6 +22,50 @@ export const api = {
         } catch (error) {
             console.error('Falha de Comunicação ao verificar getUserCode:', error);
             return null;
+        }
+    },
+
+    createWMSCode: async (type = 'PLP', quantity = 1) => {
+        try {
+            const response = await fetch('http://192.168.30.14:9908/api/v1/createWMSCode', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type, quantity })
+            });
+            if (!response.ok) throw new Error(`Erro HTTP ${response.status}`);
+            const data = await response.json();
+            if (data && data.codes && Array.isArray(data.codes) && data.codes.length > 0) {
+                return data.codes[0];
+            }
+            if (data && data.code) {
+                return data.code;
+            }
+            return null;
+        } catch (error) {
+            console.error('Erro ao gerar código WMS:', error);
+            throw error;
+        }
+    },
+
+    createPallet: async (payload) => {
+        try {
+            const response = await fetch('http://192.168.30.14:9908/api/v1/createPallet', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(`Erro HTTP ${response.status}: ${text}`);
+            }
+            const data = await response.json();
+            if (data && data.error) {
+                throw new Error(data.error_message || 'Erro ao criar Pallet');
+            }
+            return data;
+        } catch (error) {
+            console.error('Erro ao chamar createPallet:', error);
+            throw error;
         }
     },
 

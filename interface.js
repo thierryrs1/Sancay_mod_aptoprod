@@ -204,7 +204,19 @@ export function buildUI() {
             ),
             el('div', { id: 'infoOpPalletModal', style: { backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '10px 12px', margin: '10px 0 15px 0', fontSize: '0.85rem', color: '#475569', lineHeight: '1.4' } }),
             el('div', { className: 'form-group' },
-                el('label', { style: { display: 'block', marginBottom: '6px', fontWeight: '600', color: '#334155', fontSize: '0.9rem' } }, 'Código do Pallet (PLP)'),
+                el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' } },
+                    el('label', { style: { margin: 0, fontWeight: '600', color: '#334155', fontSize: '0.9rem' } }, 'Código do Pallet (PLP)'),
+                    el('button', { 
+                        type: 'button', 
+                        id: 'btnGerarPallet', 
+                        className: 'btn btn-outline', 
+                        style: { padding: '4px 10px', fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '6px', borderColor: '#818cf8', color: '#4f46e5', backgroundColor: '#eef2ff' }, 
+                        onclick: () => app.gerarNovoPallet() 
+                    }, 
+                        el('i', { className: 'fa-solid fa-wand-magic-sparkles' }),
+                        'Gerar Pallet'
+                    )
+                ),
                 el('div', { style: { position: 'relative' } },
                     el('input', { 
                         type: 'text', 
