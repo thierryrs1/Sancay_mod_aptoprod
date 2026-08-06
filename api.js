@@ -69,6 +69,48 @@ export const api = {
         }
     },
 
+    readWeightByID: async (scaleId) => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 7000);
+
+        try {
+            const response = await fetch('http://192.168.30.14:9908/api/v1/readWeightByID', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ scaleId: scaleId || 'BALANCA_TESTE' }),
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(`Erro HTTP ${response.status}: ${text}`);
+            }
+
+            const data = await response.json();
+
+            if (data && data.success === false) {
+                throw new Error(data.message || `Falha na leitura da balança ${scaleId}`);
+            }
+
+            let peso = null;
+            if (data && typeof data.weightKilogram !== 'undefined') peso = parseFloat(data.weightKilogram);
+            else if (data && typeof data.peso !== 'undefined') peso = parseFloat(data.peso);
+            else if (data && typeof data.weight !== 'undefined') peso = parseFloat(data.weight);
+            else if (typeof data === 'number') peso = data;
+
+            if (peso === null || isNaN(peso)) {
+                throw new Error(data.message || 'Não foi possível identificar o peso retornado pela balança.');
+            }
+
+            return peso;
+        } catch (error) {
+            clearTimeout(timeoutId);
+            console.error('Erro em readWeightByID:', error);
+            throw error;
+        }
+    },
+
     getUserCode: async (persId) => {
         try {
             const uid = persId || ((typeof appInfo !== 'undefined' && appInfo?.uid) ? appInfo.uid : (typeof window !== 'undefined' && window.appInfo?.uid ? window.appInfo.uid : null));

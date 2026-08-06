@@ -747,12 +747,96 @@ export const app = {
         recursosFiltrados.forEach(r => {
             const id = String(r.APLATZ_ID || '').trim();
             const desc = String(r.BEZ || '').trim();
+            const scale = String(r.Scale || '').trim();
             if (id && !seen.has(id)) {
                 seen.add(id);
-                distinct.push({ id, desc });
+                distinct.push({ id, desc, scale });
             }
         });
         return distinct;
+    },
+
+    getRecursoBalanca: function (recursoId, colabId) {
+        if (!recursoId || !this.persResourcesCache || this.persResourcesCache.length === 0) return '';
+        
+        const cleanRecId = String(recursoId).trim().toLowerCase();
+        let cleanColab = '';
+        let numColab = NaN;
+        if (colabId) {
+            cleanColab = String(colabId).trim().toLowerCase();
+            numColab = parseInt(cleanColab, 10);
+        }
+
+        const isValidScale = (s) => {
+            if (s === null || s === undefined) return false;
+            const str = String(s).trim();
+            return str !== '' && str.toLowerCase() !== 'null';
+        };
+
+        // 1. Tenta buscar pelo par Recurso + Colaborador
+        if (cleanColab) {
+            const matchColab = this.persResourcesCache.find(r => {
+                if (!r) return false;
+                const rAplatz = String(r.APLATZ_ID || '').trim().toLowerCase();
+                if (rAplatz !== cleanRecId) return false;
+                const rPers = String(r.PERS_ID || '').trim().toLowerCase();
+                const rNum = parseInt(rPers, 10);
+                return rPers === cleanColab || (!isNaN(numColab) && !isNaN(rNum) && numColab === rNum);
+            });
+            if (matchColab) {
+                if (isValidScale(matchColab.Scale)) return String(matchColab.Scale).trim();
+                return 'Balança não cadastrada no recurso';
+            }
+        }
+
+        // 2. Busca pelo Recurso em qualquer registro
+        const matchRec = this.persResourcesCache.find(r => {
+            if (!r) return false;
+            const rAplatz = String(r.APLATZ_ID || '').trim().toLowerCase();
+            return rAplatz === cleanRecId;
+        });
+
+        if (matchRec) {
+            if (isValidScale(matchRec.Scale)) return String(matchRec.Scale).trim();
+            return 'Balança não cadastrada no recurso';
+        }
+
+        return 'Balança não cadastrada no recurso';
+    },
+
+    atualizarBalancaModal: function () {
+        const inputRecurso = document.getElementById('inputRecursoId');
+        const inputPers = document.getElementById('inputPersId');
+        const inputBalanca = document.getElementById('inputBalancaId');
+        if (!inputBalanca) return;
+
+        const recursoRaw = inputRecurso ? inputRecurso.value.trim() : '';
+        let recursoId = recursoRaw;
+        if (recursoRaw.includes('-')) {
+            recursoId = recursoRaw.split('-')[0].trim();
+        }
+
+        const persRaw = inputPers ? inputPers.value.trim() : '';
+        let colabId = persRaw;
+        if (persRaw.includes('-')) {
+            colabId = persRaw.split('-')[0].trim();
+        }
+
+        if (!recursoId) {
+            inputBalanca.value = '';
+            inputBalanca.style.color = '#334155';
+            return;
+        }
+
+        const balanca = this.getRecursoBalanca(recursoId, colabId);
+        inputBalanca.value = balanca || 'Balança não cadastrada no recurso';
+        if (inputBalanca.value === 'Balança não cadastrada no recurso') {
+            inputBalanca.style.color = '#e11d48';
+            inputBalanca.style.fontWeight = '600';
+        } else {
+            inputBalanca.style.color = '#334155';
+            inputBalanca.style.fontWeight = '500';
+        }
     },
 
     showRecursoDropdown: function () {
@@ -770,6 +854,7 @@ export const app = {
     onRecursoInput: function (e) {
         const query = e.target.value.trim().toLowerCase();
         this.renderRecursoDropdown(query);
+        this.atualizarBalancaModal();
     },
 
     renderRecursoDropdown: function (query) {
@@ -826,6 +911,7 @@ export const app = {
             input.value = desc ? `${id} - ${desc}` : id;
         }
         this.hideRecursoDropdown();
+        this.atualizarBalancaModal();
     },
 
     onRecursoKeydown: function (e) {
@@ -889,6 +975,7 @@ export const app = {
             inputRecurso.placeholder = 'Digite o código ou nome do recurso...';
         }
         this.hideRecursoDropdown();
+        this.atualizarBalancaModal();
     },
 
     abrirModalColaborador: function () {
@@ -901,6 +988,11 @@ export const app = {
             inputRecurso.placeholder = 'Digite o código ou nome do recurso...';
         }
         this.hideRecursoDropdown();
+
+        const inputBalanca = document.getElementById('inputBalancaId');
+        if (inputBalanca) {
+            inputBalanca.value = '';
+        }
 
         if (!this.persResourcesCache || this.persResourcesCache.length === 0) {
             this.loadPersResources();
@@ -1011,6 +1103,9 @@ export const app = {
             recursoTexto = this.getRecursoNome(recursoSelecionado);
         }
 
+        const inputBalanca = document.getElementById('inputBalancaId');
+        const balancaValor = inputBalanca ? inputBalanca.value.trim() : '';
+
         this.apontamentosManuais.unshift({
             id: Date.now() + Math.random(),
             belnrId: sel.op.BELNR_ID,
@@ -1026,6 +1121,7 @@ export const app = {
             colaboradorUserCode: colabUserCode,
             recurso: recursoSelecionado,
             recursoNome: recursoTexto,
+            balanca: balancaValor,
             operacaoNome: sel.rot.AG_ID,
             observacao: '', // Observação vazia por padrão
             tipoPeso: 'Coleta',
@@ -1422,15 +1518,20 @@ export const app = {
                 </td>
                 
                 <td style="vertical-align: middle; padding: 10px 4px;">
-                    <div style="display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 190px; margin: 0 auto;">
-                        <div style="display: flex; gap: 6px;">
+                    <div style="display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 215px; margin: 0 auto;">
+                        <div style="display: flex; gap: 6px; align-items: flex-end;">
                             <div style="flex: 1;">
                                 <div style="font-size: 0.65em; color: #94a3b8; font-weight: bold; margin-bottom: 2px; text-align: center;">TARA</div>
                                 <input type="number" step="0.01" class="input-weigh" id="tara_${index}" value="${reg.tara}" oninput="app.calcLiquidoVisor(${index})" style="width: 100%; text-align: center; font-size: 0.85em; padding: 5px;" ${isDone ? 'disabled' : ''}>
                             </div>
-                            <div style="flex: 1;">
+                            <div style="flex: 1.25;">
                                 <div style="font-size: 0.65em; color: #94a3b8; font-weight: bold; margin-bottom: 2px; text-align: center;">BRUTO</div>
-                                <input type="number" step="0.01" class="input-weigh" id="bruto_${index}" value="${reg.pesoBruto}" oninput="app.calcLiquidoVisor(${index})" style="width: 100%; text-align: center; font-size: 0.85em; padding: 5px;" ${isDone ? 'disabled' : ''}>
+                                <div style="display: flex; align-items: center; gap: 3px;">
+                                    <input type="number" step="0.01" class="input-weigh" id="bruto_${index}" value="${reg.pesoBruto}" oninput="app.calcLiquidoVisor(${index})" style="width: 100%; text-align: center; font-size: 0.85em; padding: 5px;" ${isDone ? 'disabled' : ''}>
+                                    <button type="button" id="btn_scale_${index}" style="border: 1px solid #cbd5e1; background: #ffffff; color: #475569; border-radius: 4px; padding: 5px 6px; display: flex; align-items: center; justify-content: center; cursor: ${isDone ? 'not-allowed' : 'pointer'}; opacity: ${isDone ? '0.5' : '1'}; flex-shrink: 0; transition: all 0.2s;" onclick="app.lerBalancaBruto(${index})" title="${isDone ? 'Apontamento finalizado' : (reg.balanca ? 'Ler Balança: ' + reg.balanca : 'Ler Balança')}" onmouseover="if(!this.disabled){this.style.color='#2563eb'; this.style.borderColor='#93c5fd'; this.style.backgroundColor='#eff6ff';}" onmouseout="if(!this.disabled){this.style.color='#475569'; this.style.borderColor='#cbd5e1'; this.style.backgroundColor='#ffffff';}" ${isDone ? 'disabled' : ''}>
+                                        <i class="fa-solid fa-weight-hanging" style="font-size: 0.85em;"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 5px 10px; display: flex; justify-content: space-between; align-items: center;">
@@ -1582,6 +1683,65 @@ export const app = {
 
         this.saveDrafts();
         this.checkSavable(index);
+    },
+
+    lerBalancaBruto: async function (index) {
+        const reg = this.apontamentosManuais[index];
+        if (!reg) return;
+
+        if (reg.status === 'Finalizado') {
+            this.showToast('Este apontamento já foi finalizado.', 'warning');
+            return;
+        }
+
+        // Obtém a balança associada à linha
+        let scaleId = reg.balanca;
+        if (!scaleId) {
+            scaleId = this.getRecursoBalanca(reg.recurso, reg.colaborador);
+            if (scaleId) reg.balanca = scaleId;
+        }
+
+        const scaleClean = String(scaleId || '').trim();
+        const scaleLower = scaleClean.toLowerCase();
+
+        // Validação: se não houver balança ou se for "Balança não cadastrada no recurso"
+        if (!scaleClean || scaleLower === 'balança não cadastrada no recurso' || scaleLower === 'balanca nao cadastrada no recurso' || scaleLower.includes('não cadastrada') || scaleLower.includes('nao cadastrada')) {
+            alert('Erro: Balança não cadastrada no recurso para esta linha.');
+            this.showToast('Balança não cadastrada no recurso.', 'error');
+            return;
+        }
+
+        const btn = document.getElementById(`btn_scale_${index}`);
+        const originalHtml = btn ? btn.innerHTML : '';
+
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="font-size: 0.85em; color: #2563eb;"></i>';
+        }
+
+        try {
+            const peso = await api.readWeightByID(scaleClean);
+            if (peso !== null && !isNaN(peso)) {
+                reg.pesoBruto = parseFloat(peso);
+                const inputBruto = document.getElementById(`bruto_${index}`);
+                if (inputBruto) {
+                    inputBruto.value = reg.pesoBruto;
+                }
+                this.calcLiquidoVisor(index);
+                this.showToast(`Peso capturado: ${reg.pesoBruto} kg (${scaleClean})`, 'success');
+            } else {
+                throw new Error('Retorno de peso inválido da balança.');
+            }
+        } catch (err) {
+            console.error('Erro ao ler peso da balança:', err);
+            alert(`Erro ao ler balança (${scaleClean}):\n${err.message || err}`);
+            this.showToast(`Erro na balança: ${err.message || err}`, 'error');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        }
     },
 
     lerBalanca: async function (index) {

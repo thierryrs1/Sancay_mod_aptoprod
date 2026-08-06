@@ -170,6 +170,17 @@ export function buildUI() {
                 )
             ),
             el('div', { className: 'form-group' },
+                el('label', { style: { display: 'block', marginBottom: '5px', fontWeight: '500', color: '#475569', fontSize: '0.9rem' } }, 'Balança'),
+                el('input', { 
+                    type: 'text', 
+                    id: 'inputBalancaId', 
+                    className: 'form-control', 
+                    placeholder: 'Balança vinculada ao recurso...', 
+                    readOnly: true,
+                    style: { backgroundColor: '#f8fafc', color: '#334155', fontWeight: '500' }
+                })
+            ),
+            el('div', { className: 'form-group' },
                 el('label', { style: { display: 'block', marginBottom: '5px', fontWeight: '500', color: '#475569', fontSize: '0.9rem' } }, 'Selecione a Operação'),
                 el('div', { id: 'cardsOpModal', style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: '12px', maxHeight: '280px', overflowY: 'auto', padding: '8px 10px 8px 6px' } })
             ),
